@@ -191,6 +191,8 @@ If you use **LexiDecay** in academic work, please cite:
 You can see **LexiDecay Examples** for some examples:
 
 > [See here some examples](https://github.com/mr-r0ot/LexiDecay/tree/main/Examples)
+> [See Pypi project](https://pypi.org/project/LexiDecay/)
+
 
 ---
 
