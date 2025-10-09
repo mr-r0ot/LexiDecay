@@ -165,13 +165,14 @@ m2 = LexiDecayModel.load_model("lexidecay.pkl")
 ## 🧬 Example: Multi-category Classification
 
 ```python
+from LexiDecay import LexiDecayModel
 m = LexiDecayModel()
-m.add_category("tech", ["AI algorithms", "neural networks", "deep learning"])
+m.add_category("tech", ["AI","Model","AI algorithms", "neural networks", "deep learning"])
 m.add_category("art", ["painting", "music", "creativity", "aesthetic beauty"])
 m.add_category("sports", ["football", "strength", "competition"])
 
 res = m.classify("New AI model beats humans at creative painting tasks.")
-print(res["top"])
+print(res)
 # Output → ('art', score, probability)
 ```
 
@@ -182,6 +183,14 @@ print(res["top"])
 If you use **LexiDecay** in academic work, please cite:
 
 > Mohammad Taha Gorji, *LexiDecay: Semi-supervised Lexical Decay Model for Adaptive Text Classification (2025)*
+
+---
+
+## 🔹 Examples
+
+You can see **LexiDecay Examples** for some examples:
+
+> [See here some examples](https://github.com/mr-r0ot/LexiDecay/tree/main/Examples)
 
 ---
 
