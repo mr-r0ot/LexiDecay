@@ -233,12 +233,12 @@ s2=0
 for i in data1.split():
     if i.lower() in input.lower():
         s1+=1
-        print(s1)
+print(s1)
 
 for i in data2.split():
     if i.lower() in input.lower():
         s2+=1
-        print(s2)
+print(s2)
 
 
 if s1==0:s1=1
