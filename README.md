@@ -213,4 +213,36 @@ Open for research, education, and innovation.
 
 > “LexiDecay doesn’t learn — it understands.” 🧠✨
 
+---
+---
+
+
+
+
+
+## 🌌 The story behind this algorithm
+The story behind this algorithm is that I had a collection of stories with A1 language level and one with C1 and I had to take an input and determine which level it was! And so I thought to myself why not try a simple way instead of very time-consuming, expensive and slow algorithms? And I wrote this simple and really dirty code :). I didn't expect it but it worked really well! And it generally recognized correctly but the more I investigated, the more repeated words like (the, ...) that were repeated a lot hurt the comparison. So I continued this way and developed this algorithm which is really super fast and also has a very high accuracy! I developed this algorithm and added and developed the repetition weight reduction rate + repetition reduction rate + similarity comparisons etc. and now it is this :)
+```
+data1 = open('A1.txt', encoding='UTF-8').read()
+data2 = open('C1.txt', encoding='UTF-8').read()
+
+input='''Beyond the physical cosmos, in dimensions inaccessible to ordinary perception'''
+s1=0
+s2=0
+
+for i in data1.split():
+    if i.lower() in input.lower():
+        s1+=1
+        print(s1)
+
+for i in data2.split():
+    if i.lower() in input.lower():
+        s2+=1
+        print(s2)
+
+
+if s1==0:s1=1
+elif s2==0:s2=1
+if s1>s2:print(s1/s2)
+else:print(s2/s1)
 ```
