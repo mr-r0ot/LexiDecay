@@ -1,0 +1,447 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>LexiDecay — The Adaptive Lexical Decay Classifier</title>
+  <meta name="description" content="LexiDecay — blazing-fast, semi-supervised lexical decay classifier. Instant, explainable text classification without training." />
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --bg:#0b0d10; /* deep dark */
+      --panel:#0f1114;
+      --muted:#98a0b3;
+      --accent:#8be9fd; /* cyan accent */
+      --accent-2:#c792ea; /* purple */
+      --glass: rgba(255,255,255,0.04);
+      --glass-2: rgba(255,255,255,0.02);
+      --card:#0d0f12;
+      --radius:16px;
+      --glass-border: rgba(255,255,255,0.06);
+      --max-width:1100px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; font-family:Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; background:var(--bg); color:#e6eef8; -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; line-height:1.45;
+      -webkit-tap-highlight-color: transparent;
+    }
+    /* Background canvas sits behind everything */
+    #bgCanvas{position:fixed; inset:0; z-index:0; pointer-events:none}
+
+    .wrap{position:relative; z-index:2; max-width:var(--max-width); margin:0 auto; padding:48px 28px}
+
+    header{position:sticky; top:12px; z-index:5; display:flex; align-items:center; justify-content:space-between; padding:12px 20px; border-radius:14px; background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); backdrop-filter: blur(6px); border:1px solid var(--glass-border); margin:8px auto 28px; max-width:var(--max-width)}
+    .logo{display:flex; align-items:center; gap:12px}
+    .logo .mark{width:44px; height:44px; border-radius:10px; display:flex; align-items:center; justify-content:center; background:linear-gradient(135deg,var(--accent),var(--accent-2)); box-shadow:0 6px 18px rgba(140,50,200,0.14); font-weight:800; color:#081018}
+    .logo h1{font-size:16px; margin:0; letter-spacing:0.2px}
+    nav{display:flex; gap:18px; align-items:center}
+    nav a{color:var(--muted); text-decoration:none; font-weight:600; font-size:13px}
+    nav a:hover{color:var(--accent)}
+    .cta{display:flex; gap:10px; align-items:center}
+    .btn{padding:10px 14px; border-radius:12px; font-weight:700; font-size:13px; cursor:pointer; border:1px solid transparent}
+    .btn-primary{background:linear-gradient(90deg,var(--accent),var(--accent-2)); color:#041017; box-shadow:0 8px 30px rgba(139,233,253,0.08), 0 2px 6px rgba(200,120,255,0.05);}
+    .btn-ghost{background:transparent; border:1px solid var(--glass-border); color:var(--muted)}
+
+    /* Hero */
+    .hero{display:grid; grid-template-columns:1fr 420px; gap:36px; align-items:center; padding:64px 0}
+    .hero .left{padding-right:8px}
+    .eyebrow{display:inline-flex; gap:10px; align-items:center; color:var(--muted); font-size:13px}
+    .eyebrow .pill{background:linear-gradient(90deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01)); padding:6px 10px; border-radius:999px; border:1px solid var(--glass-border)}
+    h2.title{font-family:Poppins, Inter; font-weight:700; letter-spacing:-0.6px; font-size:44px; margin:12px 0 8px; line-height:1.03}
+    p.lead{color:var(--muted); font-size:16px; margin:0 0 20px; max-width:68%}
+
+    .stats{display:flex; gap:18px; margin-top:18px}
+    .stat{background:linear-gradient(180deg, rgba(255,255,255,0.02), transparent); border:1px solid var(--glass-border); padding:12px 14px; border-radius:12px; min-width:120px}
+    .stat strong{display:block; font-size:18px}
+    .stat span{color:var(--muted); font-size:13px}
+
+    /* hero right: card with animated preview */
+    .card{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); border-radius:14px; padding:18px; border:1px solid var(--glass-border); box-shadow:0 6px 30px rgba(2,6,16,0.6)}
+    .mini-preview{height:360px; width:100%; border-radius:12px; overflow:hidden; display:flex; flex-direction:column}
+    .preview-header{display:flex; gap:8px; align-items:center; padding:12px}
+    .dots{display:flex; gap:8px}
+    .dot{width:10px;height:10px;border-radius:50%}
+    .dot.r{background:#ff6b6b}
+    .dot.y{background:#f6d365}
+    .dot.g{background:#6bd27f}
+    .preview-body{flex:1; padding:12px 16px; display:flex; flex-direction:column; gap:8px}
+    .preview-line{height:14px; background:linear-gradient(90deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02)); border-radius:8px}
+
+    /* features */
+    .features{display:grid; grid-template-columns:repeat(3,1fr); gap:18px; margin:48px 0}
+    .feature{background:linear-gradient(180deg, rgba(255,255,255,0.015), rgba(255,255,255,0.01)); border-radius:12px; padding:18px; border:1px solid var(--glass-border); transition:transform .36s cubic-bezier(.2,.9,.3,1), box-shadow .36s}
+    .feature:hover{transform:translateY(-8px) rotate(-0.2deg); box-shadow:0 30px 60px rgba(7,12,20,0.6)}
+    .feature svg{width:44px;height:44px}
+    .feature h3{margin:8px 0 6px}
+    .feature p{margin:0; color:var(--muted); font-size:14px}
+
+    /* interactive demo */
+    .demo{display:grid; grid-template-columns:1fr 360px; gap:20px; align-items:start; margin:28px 0}
+    .demo .panel{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); border-radius:12px; padding:16px; border:1px solid var(--glass-border)}
+    .controls{display:flex; gap:8px; align-items:center; margin-bottom:8px}
+    .field{display:flex; flex-direction:column; gap:6px}
+    textarea{width:100%; min-height:140px; resize:vertical; padding:12px; border-radius:10px; background:transparent; border:1px dashed var(--glass-border); color:inherit}
+    label{font-size:13px; color:var(--muted)}
+    .small{font-size:13px; color:var(--muted)}
+    .prob-list{display:flex; flex-direction:column; gap:8px; margin-top:10px}
+    .prob{display:flex; justify-content:space-between; gap:12px; align-items:center}
+    .bar{height:10px; flex:1; border-radius:999px; background:linear-gradient(90deg, rgba(255,255,255,0.03), rgba(255,255,255,0.02)); margin-right:10px; overflow:hidden}
+    .bar > i{display:block; height:100%; border-radius:999px; background:linear-gradient(90deg,var(--accent),var(--accent-2));}
+
+    /* code */
+    pre{background:linear-gradient(180deg, rgba(2,6,20,0.6), rgba(2,6,20,0.5)); padding:16px; border-radius:10px; overflow:auto; border:1px solid rgba(255,255,255,0.03)}
+    code{font-family:monospace; font-size:13px; color:#dbeafe}
+
+    /* footer */
+    footer{margin-top:48px; padding:36px 18px; border-radius:12px; background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.005)); border:1px solid var(--glass-border)}
+    .foot-grid{display:flex; justify-content:space-between; gap:20px; align-items:center}
+    .socials{display:flex; gap:12px}
+    .muted{color:var(--muted)}
+
+    /* responsive */
+    @media (max-width:980px){
+      .hero{grid-template-columns:1fr}
+      .demo{grid-template-columns:1fr}
+      nav{display:none}
+      header{padding:12px}
+    }
+
+    /* subtle focus styles */
+    a:focus, button:focus, textarea:focus{outline:3px solid rgba(139,233,253,0.12); outline-offset:2px}
+
+    /* reveal animations */
+    .reveal{opacity:0; transform:translateY(18px); transition:opacity .6s ease, transform .6s cubic-bezier(.2,.9,.3,1)}
+    .reveal.show{opacity:1; transform:none}
+
+  </style>
+</head>
+<body>
+  <canvas id="bgCanvas" aria-hidden="true"></canvas>
+
+  <div class="wrap" role="main">
+    <header>
+      <div class="logo">
+        <div class="mark" aria-hidden>LD</div>
+        <div>
+          <h1>LexiDecay</h1>
+          <div class="muted" style="font-size:12px">Adaptive Lexical Decay Classifier</div>
+        </div>
+      </div>
+
+      <nav aria-label="Primary">
+        <a href="#features">Features</a>
+        <a href="#demo">Demo</a>
+        <a href="#code">Code</a>
+        <a href="#docs">Docs</a>
+        <a href="#examples">Examples</a>
+      </nav>
+
+      <div class="cta">
+        <a class="btn btn-ghost" href="#docs">Docs</a>
+        <a class="btn btn-primary" href="#demo">Get Started</a>
+      </div>
+    </header>
+
+    <section class="hero">
+      <div class="left">
+        <div class="eyebrow reveal" style="--d:0s"><span class="pill">Open Source • No Training</span></div>
+        <h2 class="title reveal" style="--d:.06s">LexiDecay — instant, explainable text classification</h2>
+        <p class="lead reveal" style="--d:.12s">A blazing-fast, semi-supervised lexical decay classifier that scores and classifies text without training. Adaptive frequency decay, IDF toggles, and transparent scoring make LexiDecay ideal for topic classification, intent detection and lightweight cognitive systems.</p>
+
+        <div class="stats reveal" style="--d:.18s">
+          <div class="stat"><strong>O(n·m)</strong><span>Lightning inference</span></div>
+          <div class="stat"><strong>No training</strong><span>Instant deploy</span></div>
+          <div class="stat"><strong>Explainable</strong><span>Transparent lexical logic</span></div>
+        </div>
+      </div>
+
+      <div class="card reveal" style="--d:.24s">
+        <div class="mini-preview">
+          <div class="preview-header">
+            <div class="dots"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span></div>
+            <div style="margin-left:auto; color:var(--muted); font-size:13px">Live client preview</div>
+          </div>
+          <div class="preview-body">
+            <div class="preview-line" style="width:84%"></div>
+            <div class="preview-line" style="width:64%"></div>
+            <div class="preview-line" style="width:92%"></div>
+            <div class="preview-line" style="width:54%"></div>
+            <div style="margin-top:auto; display:flex; gap:8px; align-items:center;"><button class="btn btn-primary" onclick="document.getElementById('demo-input').value = 'Quantum theories explore the probabilistic structure of the universe.';">Try example</button><button class="btn btn-ghost" onclick="scrollToSection('demo')">Open demo</button></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="features" class="reveal">
+      <h3 style="font-family:Poppins,Inter;font-size:20px">Why LexiDecay?</h3>
+      <div class="features">
+        <div class="feature">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10" stroke="url(#g1)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <h3>Training-free</h3>
+          <p>Works instantly with zero labeled data. Add categories and classify in milliseconds.</p>
+        </div>
+        <div class="feature">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M3 12h18" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <h3>Adaptive Decay</h3>
+          <p>Auto frequency decay reduces the influence of overly-common tokens without manual stoplists.</p>
+        </div>
+        <div class="feature">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M12 2v20" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <h3>Explainable</h3>
+          <p>See matched tokens, scores, and probability breakdowns — full transparency.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="demo" class="reveal">
+      <h3 style="font-family:Poppins,Inter;font-size:20px">Interactive Demo</h3>
+      <div class="demo">
+        <div class="panel">
+          <div class="controls">
+            <div class="field" style="flex:1">
+              <label for="demo-input">Enter text to classify</label>
+              <textarea id="demo-input" placeholder="Paste a sentence, paragraph or short document..."></textarea>
+            </div>
+            <div style="width:180px">
+              <label class="small">Decay (0 — 1)</label>
+              <input id="decay" type="range" min="0" max="1" step="0.01" value="0.5" style="width:100%">
+              <div style="display:flex; gap:8px; margin-top:8px"><label><input type="checkbox" id="use_idf"> use_idf</label></div>
+            </div>
+          </div>
+
+          <div style="display:flex; gap:8px; margin-bottom:8px">
+            <button class="btn btn-primary" id="classifyBtn">Classify</button>
+            <button class="btn btn-ghost" id="resetBtn">Reset</button>
+            <button class="btn btn-ghost" id="addSampleBtn">Add sample category</button>
+          </div>
+
+          <div id="results" aria-live="polite" style="margin-top:12px"></div>
+        </div>
+
+        <aside class="panel" aria-label="Model controls">
+          <div style="display:flex; justify-content:space-between; align-items:center"><strong>Model</strong><button class="btn btn-ghost" id="exportBtn">Export</button></div>
+          <div style="margin-top:12px">
+            <label class="small">Categories (editable)</label>
+            <div id="cats" style="display:flex; flex-direction:column; gap:8px; margin-top:8px"></div>
+          </div>
+
+          <div style="margin-top:12px"><label class="small">Top probabilities</label>
+            <div id="probs" class="prob-list"></div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section id="code" class="reveal">
+      <h3 style="font-family:Poppins,Inter;font-size:20px">Python Quickstart</h3>
+      <pre><code># Install
+pip install LexiDecay
+
+# Basic usage
+from LexiDecay import LexiDecayModel
+m = LexiDecayModel()
+m.add_category("science", open("science.txt").read())
+m.add_category("philosophy", open("philosophy.txt").read())
+text = "Quantum theories explore the probabilistic structure of the universe."
+result = m.classify(text)
+print(result["top"])  # ('science', score, probability)
+</code></pre>
+    </section>
+
+    <section id="examples" class="reveal">
+      <h3 style="font-family:Poppins,Inter;font-size:20px">Examples & Use Cases</h3>
+      <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin-top:12px">
+        <div class="panel"><strong>Topic classification</strong><div class="muted" style="margin-top:6px">Classify articles into domains like science, art, sports — instantly.</div></div>
+        <div class="panel"><strong>Intent detection</strong><div class="muted" style="margin-top:6px">Detect user intent in chatbots and routing systems with low latency.</div></div>
+      </div>
+    </section>
+
+    <footer>
+      <div class="foot-grid">
+        <div>
+          <strong>LexiDecay</strong>
+          <div class="muted">Apache 2.0 © 2025 Mohammad Taha Gorji</div>
+        </div>
+        <div class="socials">
+          <a class="muted" href="https://github.com/mr-r0ot/LexiDecay" target="_blank" rel="noreferrer">GitHub</a>
+          <a class="muted" href="https://pypi.org/project/LexiDecay/" target="_blank" rel="noreferrer">PyPI</a>
+          <a class="muted" href="#docs">Docs</a>
+        </div>
+      </div>
+    </footer>
+
+  </div>
+
+  <script>
+    // Utility: scroll to section
+    function scrollToSection(id){document.getElementById(id).scrollIntoView({behavior:'smooth', block:'start'})}
+
+    // Reveal on scroll
+    const observer = new IntersectionObserver((items)=>{
+      items.forEach(i=>{ if(i.isIntersecting){ i.target.classList.add('show'); observer.unobserve(i.target) } })
+    }, {threshold:0.12})
+    document.querySelectorAll('.reveal').forEach(el=>observer.observe(el));
+
+    // Background canvas: animated soft white water-like blobs
+    const canvas = document.getElementById('bgCanvas');
+    const ctx = canvas.getContext('2d');
+    let W, H;
+    function resize(){W=canvas.width = innerWidth; H=canvas.height = innerHeight}
+    window.addEventListener('resize', resize); resize();
+
+    // blobs config
+    const blobs = [];
+    const colors = ['rgba(255,255,255,0.06)','rgba(255,255,255,0.04)','rgba(255,255,255,0.025)'];
+    for(let i=0;i<8;i++){
+      blobs.push({x:Math.random()*W, y:Math.random()*H, r:80+Math.random()*260, vx:(Math.random()-0.5)*0.4, vy:(Math.random()-0.5)*0.4, col:colors[i%colors.length]});
+    }
+
+    function draw(){
+      ctx.clearRect(0,0,W,H);
+      // soft vignette
+      const g = ctx.createLinearGradient(0,0,0,H);
+      g.addColorStop(0,'rgba(6,8,12,0.0)'); g.addColorStop(1,'rgba(2,4,8,0.4)');
+      ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+
+      // draw blobs to offscreen then blur using globalCompositeOperation trick
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      blobs.forEach(b=>{
+        const grad = ctx.createRadialGradient(b.x, b.y, b.r*0.08, b.x, b.y, b.r);
+        grad.addColorStop(0, b.col);
+        grad.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath(); ctx.ellipse(b.x, b.y, b.r, b.r*0.7, 0, 0, Math.PI*2); ctx.fill();
+      });
+      ctx.restore();
+
+      // subtle overlay lines
+      ctx.save(); ctx.globalCompositeOperation='overlay'; ctx.fillStyle='rgba(255,255,255,0.01)'; ctx.fillRect(0,0,W,H); ctx.restore();
+
+      // move blobs
+      blobs.forEach(b=>{ b.x+=b.vx; b.y+=b.vy; if(b.x<-300) b.x=W+200; if(b.x>W+300) b.x=-200; if(b.y<-300) b.y=H+200; if(b.y>H+300) b.y=-200; });
+
+      requestAnimationFrame(draw);
+    }
+    requestAnimationFrame(draw);
+
+    // --- Simple client-side LexiDecay implementation (educational demo) ---
+    class LexiDecayDemo{
+      constructor(){ this.categories = {} }
+      _tokenize(s){ return s.toLowerCase().match(/\b[\w']+\b/g) || [] }
+      addCategory(label, content){
+        const toks = this._tokenize(Array.isArray(content)?content.join(' '):content);
+        const freqs = {};
+        toks.forEach(t=> freqs[t] = (freqs[t]||0)+1);
+        this.categories[label] = {freqs, total:toks.length}
+        return this.categories[label]
+      }
+      classify(text, opts={decay:0.5, use_idf:false, auto_common_reduce:true}){
+        const toks = this._tokenize(text);
+        if(toks.length===0) return {scores:{},probs:{},top:null}
+        const unique = [...new Set(toks)];
+        const scores = {};
+        // build idf if requested
+        const N = Object.keys(this.categories).length || 1;
+        const df = {};
+        if(opts.use_idf){
+          for(const cat in this.categories){
+            for(const t in this.categories[cat].freqs) df[t] = (df[t]||0)+1
+          }
+        }
+        for(const cat in this.categories){
+          let s = 0;
+          const freqs = this.categories[cat].freqs;
+          for(const t of unique){
+            const f = freqs[t]||0;
+            // adaptive decay: heavier words (higher freq) contribute less
+            const weight = f>0 ? (1 / (1 + Math.pow(f, opts.decay))) : 0;
+            const idf = opts.use_idf && df[t] ? Math.log(1 + N / (df[t]||1)) : 1;
+            s += weight * idf;
+          }
+          scores[cat] = s;
+        }
+        // normalize to probabilities (softmax-like)
+        const max = Math.max(...Object.values(scores), 0);
+        const exps = {}; let sum=0;
+        for(const k in scores){ exps[k] = Math.exp(scores[k]-max); sum+=exps[k] }
+        const probs = {}; for(const k in exps) probs[k] = sum? exps[k]/sum : 0;
+        const sorted = Object.keys(probs).sort((a,b)=>probs[b]-probs[a]);
+        const top = sorted.length? [sorted[0], scores[sorted[0]], probs[sorted[0]]] : null;
+        return {scores, probs, top}
+      }
+    }
+
+    // instantiate and seed categories from README examples
+    const model = new LexiDecayDemo();
+    model.addCategory('tech', ['AI','Model','AI algorithms','neural networks','deep learning']);
+    model.addCategory('art', ['painting','music','creativity','aesthetic','beauty']);
+    model.addCategory('sports', ['football','strength','competition','score']);
+
+    // UI wiring
+    const classifyBtn = document.getElementById('classifyBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const addSampleBtn = document.getElementById('addSampleBtn');
+    const results = document.getElementById('results');
+    const probsBox = document.getElementById('probs');
+    const catsBox = document.getElementById('cats');
+
+    function renderCats(){ catsBox.innerHTML = ''; Object.keys(model.categories).forEach(label=>{
+      const el = document.createElement('div'); el.style.display='flex'; el.style.gap='8px'; el.style.alignItems='center';
+      const input = document.createElement('input'); input.value = label; input.style.flex='1'; input.onchange = (e)=>{
+        const newLabel = e.target.value.trim(); if(!newLabel) return; if(newLabel!==label){ model.categories[newLabel]=model.categories[label]; delete model.categories[label]; renderCats(); }
+      }
+      const del = document.createElement('button'); del.className='btn btn-ghost'; del.textContent='Delete'; del.onclick=()=>{ delete model.categories[label]; renderCats(); }
+      el.appendChild(input); el.appendChild(del); catsBox.appendChild(el);
+    }) }
+    renderCats();
+
+    function renderProbs(probs){ probsBox.innerHTML=''; const entries = Object.entries(probs).sort((a,b)=>b[1]-a[1]);
+      entries.forEach(([k,v])=>{
+        const wrap = document.createElement('div'); wrap.className='prob';
+        const name = document.createElement('div'); name.textContent = k; name.style.width='90px';
+        const bar = document.createElement('div'); bar.className='bar'; const i = document.createElement('i'); i.style.width = (v*100)+'%'; bar.appendChild(i);
+        const pct = document.createElement('div'); pct.textContent = (v*100).toFixed(1)+'%'; pct.style.width='48px'; pct.style.textAlign='right'; pct.className='muted';
+        wrap.appendChild(name); wrap.appendChild(bar); wrap.appendChild(pct); probsBox.appendChild(wrap);
+      }) }
+
+    classifyBtn.addEventListener('click', ()=>{
+      const txt = document.getElementById('demo-input').value.trim(); const decay = parseFloat(document.getElementById('decay').value); const use_idf = document.getElementById('use_idf').checked;
+      if(!txt){ results.innerHTML = '<div class="muted">Please enter text to classify.</div>'; return }
+      const out = model.classify(txt, {decay, use_idf});
+      // build results
+      let html = '';
+      if(out.top){ html += `<div style="display:flex; justify-content:space-between; align-items:center"><div><strong style="font-size:18px">Top: ${out.top[0]}</strong><div class="muted">score ${out.top[1].toFixed(4)}</div></div><div style="text-align:right">prob ${(out.top[2]*100).toFixed(2)}%</div></div>` }
+      html += '<div style="margin-top:10px"><strong>Matched tokens</strong><div class="muted" style="margin-top:6px">(tokens present in categories)</div></div>';
+      // show matched words per category
+      html += '<div style="margin-top:6px">';
+      for(const cat in out.scores){
+        const toks = Object.keys(model.categories[cat].freqs).filter(t => txt.toLowerCase().includes(t));
+        html += `<div style="margin-top:8px"><strong>${cat}</strong> <span class="muted">${toks.length} matches</span><div class="muted" style="margin-top:6px">${toks.slice(0,10).join(', ') || '—'}</div></div>`
+      }
+      html += '</div>';
+      results.innerHTML = html; renderProbs(out.probs);
+    });
+
+    resetBtn.addEventListener('click', ()=>{ document.getElementById('demo-input').value=''; results.innerHTML=''; probsBox.innerHTML=''; })
+
+    addSampleBtn.addEventListener('click', ()=>{
+      const label = 'sample-'+Math.floor(Math.random()*9000+1000);
+      model.addCategory(label, ['example','sample','token','demotext']); renderCats();
+    })
+
+    document.getElementById('exportBtn').addEventListener('click', ()=>{
+      const payload = JSON.stringify(model.categories, null, 2);
+      const blob = new Blob([payload], {type:'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = 'lexidecay-model.json'; a.click(); URL.revokeObjectURL(url);
+    });
+
+    // keyboard shortcut: Cmd/Ctrl+K to focus input
+    window.addEventListener('keydown', (e)=>{ if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){ e.preventDefault(); document.getElementById('demo-input').focus(); } })
+
+  </script>
+</body>
+</html>
