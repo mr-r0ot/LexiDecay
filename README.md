@@ -6,6 +6,9 @@
 
 ---
 
+## 🪶 Web
+> See our site [https://mr-r0ot.github.io/LexiDecay](https://mr-r0ot.github.io/LexiDecay)
+
 ## 🌌 Algorithm Philosophy & Core Idea
 
 **LexiDecay** is inspired by the way human cognition evaluates language — not by rigid statistical training, but by dynamically weighting words according to their contextual importance and rarity.  
