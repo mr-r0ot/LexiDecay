@@ -41,7 +41,7 @@ LexiDecay is suitable for a wide variety of language-intelligent systems:
 - 🎯 **Intent detection** — Recognize user intentions from text queries or chatbot messages.  
 - 🧭 **Semantic filtering** — Filter or route information based on conceptual meaning.  
 - 🪶 **Keyword-based reasoning** — Identify thematic or conceptual similarity.  
-- 🧠 **Cognitive AI prototypes** — For lightweight, reasoning-like models without deep networks.  
+- 🧠 **Cognitive AI prototypes** — For lightweight, reasoning-like models without deep networks.  [See here](https://github.com/mr-r0ot/LexiDecay/tree/main/Examples/LexiDecay-Chatbot)
 
 ---
 
