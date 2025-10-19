@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LexiDecay AI Classifier</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  body {
+    font-family: 'Inter', sans-serif;
+    background: linear-gradient(135deg, #222, #2e2e2e);
+    color: #eee;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: 100vh;
+  }
+
+  .container {
+    background: #1a1a1a;
+    border-radius: 16px;
+    box-shadow: 0 0 25px rgba(0,0,0,0.5);
+    margin-top: 50px;
+    padding: 30px;
+    width: 90%;
+    max-width: 700px;
+  }
+
+  h1 {
+    text-align: center;
+    color: #7cdfff;
+    margin-bottom: 20px;
+  }
+
+  textarea {
+    width: 100%;
+    height: 100px;
+    border-radius: 10px;
+    border: none;
+    padding: 10px;
+    resize: none;
+    background: #2a2a2a;
+    color: #fff;
+    font-size: 15px;
+  }
+
+  .controls {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 10px;
+    margin-top: 15px;
+  }
+
+  .controls label {
+    font-size: 13px;
+  }
+
+  input[type="number"], input[type="checkbox"] {
+    width: 100%;
+    padding: 6px;
+    border-radius: 8px;
+    border: none;
+    background: #2b2b2b;
+    color: #fff;
+    font-size: 14px;
+  }
+
+  button {
+    background: #7cdfff;
+    color: #111;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 15px;
+    cursor: pointer;
+    margin-top: 15px;
+    transition: all 0.3s;
+    width: 100%;
+  }
+
+  button:hover {
+    background: #a1f4ff;
+    transform: scale(1.02);
+  }
+
+  .result {
+    margin-top: 25px;
+    background: #111;
+    border-radius: 12px;
+    padding: 15px;
+  }
+
+  .result h3 {
+    color: #7cdfff;
+    margin-bottom: 10px;
+  }
+
+  pre {
+    background: #000;
+    padding: 10px;
+    border-radius: 10px;
+    overflow-x: auto;
+    color: #7cdfff;
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <h1>🧠 LexiDecay - Language Level Classifier (A1 / C1)</h1>
+
+  <p style="font-size:13px; color:#bbb; text-align:center;">
+    Artificial intelligence model based on LexiDecay for language level detection (A1 / C1).<br>
+    *Naturally, AI results may not be completely accurate and should not be relied upon.
+  </p>
+
+  <textarea id="inputText" placeholder="Enter English text here..."></textarea>
+
+  <div class="controls">
+    <label>Decay: <input type="number" id="decay" step="0.1" min="0" max="1" value="0.4"></label>
+    <label>Common Decay: <input type="number" id="commonDecay" step="0.1" min="0" max="1" value="0.8"></label>
+    <label>Min Common Mult: <input type="number" id="minCommon" step="0.01" min="0.01" max="1" value="0.08"></label>
+    <label><input type="checkbox" id="idf" checked> Use IDF</label>
+    <label><input type="checkbox" id="autoReduce" checked> Auto Common Reduce</label>
+  </div>
+
+  <button id="runBtn">Classify</button>
+
+  <div class="result" id="output" style="display:none;">
+    <h3>Result</h3>
+    <p id="topCategory"></p>
+    <pre id="allProbs"></pre>
+  </div>
+</div>
+
+<!-- Load LexiDecay -->
+<script src="lexidecay.js"></script>
+<script>
+  // Initialize model
+  const model = new LexiDecayModel();
+
+
+
+
+
+
+
+
+
+  // Example categories: A1 and C1
+  const dataA1 = `Anna has a small garden behind her house. She wakes up early. She opens the window.
+She sees the sun. The sun is warm. She puts on a light jacket. She walks outside. She smiles.
+Anna loves her garden. The garden has many plants. There are flowers and small trees. There are green leaves.
+She waters the plants with a small can. The water is cool. The plants drink the water slowly.
+A bird sings on a branch. Anna listens. She writes a short note in her small notebook. She writes about the morning.
+She writes one sentence and then another. She practices new words. She says the words out loud.
+Today is a big day for the garden. A neighbor will come to help. The neighbor's name is Tom.
+Tom is kind. He likes to plant seeds. Tom arrives at nine o'clock. He brings a small bag of soil and many seeds.
+Anna and Tom talk about the flowers. They pick a corner near the fence. They dig small holes in the soil.
+Anna uses a small shovel. Tom uses his hands and a little rake. They plant seeds in a row.
+They put a small sign beside each row. The sign has the name of the plant. One sign says 'Tomato'. One sign says 'Carrot'.
+Anna and Tom water the new seeds together. The sun moves in the sky. Clouds come and go.
+People walk past the fence. The children point at the bright flowers near the gate. The children smile and wave.
+A cat comes slowly. The cat sits on the path. The cat watches the small birds. The cat blinks and purrs.
+Anna gives the cat a small piece of bread. The cat is happy. The bird flies up and sings again.
+They take a short break. Anna makes tea in the kitchen. She takes the tea outside. The cup is warm in her hands.
+Tom eats a small sandwich. They talk. They say simple words. They laugh at a small joke.
+After lunch, they plant more seeds. They plant herbs near the window. They plant basil and mint.
+The smell is fresh and green. Anna breathes slowly. She learns new words: 'soil', 'seed', 'sprout'.
+At the end of the day, the sky becomes orange. The sun goes down. Anna and Tom clean the tools.
+They look at the garden. The new plants are small but brave. Anna feels proud.
+She writes in her notebook again. She writes: 'Today I planted seeds. I worked with a friend. I felt happy.'
+She closes the notebook. The moon rises. The stars come out in the sky.
+Anna says good night to the garden. She covers the small plants with a light cloth to keep them warm.
+She goes inside and sleeps. In her dream, the garden grows tall. The flowers open and sing.
+The story of the garden is simple and calm. Anna learns many new words. She reads and speaks slowly.
+She practices English with small sentences. She knows that small steps bring big change.
+Tomorrow she will water the plants again. She will check for small leaves and small sprouts.
+Every day she will say one new word to herself. She will write one sentence in her notebook.
+This is a big day and also a small step. The garden will grow because Anna cares.
+The end of this small story shows care, simple work, and quiet joy.
+Ben plays in the park after school. He has a red ball. The ball is round and bright.
+The ball is his favorite toy. He throws the ball. The ball goes high and far.
+A dog runs and takes the ball. The dog loves the ball. Ben runs after the dog.
+The dog runs fast. It jumps and plays. Ben laughs and calls, 'Stop dog!' The dog does not stop.
+The dog goes to the river. The ball falls into the water. The ball floats for a while.
+Ben feels sad. He sits on a bench. He watches the ball in the water. The water moves slowly.
+A woman sees Ben. She comes near. Her name is Maria. She asks, 'Are you ok?'
+Ben shows the woman the empty hands. He says, 'My red ball is in the river.' Maria smiles and says, 'Let's find it.'
+They move together along the river bank. The sun shines. The air is cool.
+They meet a man with a small boat. The man says, 'I can help.' He takes the boat to the middle of the river.
+Maria points to the red ball. The man uses a long stick and lifts the ball from the water.
+The ball is wet but safe. Ben is happy again. He thanks the man and Maria a lot.
+Ben shares his story about the ball with his mother when they return home. His mother is glad.
+She says, 'You were brave and patient.' Ben learns to keep the ball close next time.
+He learns to say 'Please' and 'Thank you' in English when people help. He says, 'Thank you very much.'
+That evening Ben cleans the red ball and puts it on his shelf. He checks the park and the river in his notebook.
+He writes one sentence: 'Today I lost a ball but I found a friend.' He thinks about his day.
+He goes to sleep with the ball near his bed. He dreams of the dog and the river and the kind man in the boat.
+Next day, Ben goes back to the park. He watches the river and says hello to Maria and the man.
+He learns that people can help each other. He learns new words like 'river', 'boat', 'stick', and 'float'.
+Ben practices these words. He says them slowly. He smiles and plays with his red ball again.
+This small story is simple. It has feelings and a small lesson. It helps learners to read and speak.
+Ben knows that a small kindness can make the day bright. He will keep the ball close and remember the friends who helped him.
+rket Visit
+Level: A1 Genre: Story
+Font size
+Maya walks to the market with her mother. The market is full of colors and sound.
+Maya sees many fruits on the stalls. Apples, bananas, oranges, and grapes sit in small baskets.
+The sellers smile and call, 'Fresh fruit, pick one.' Maya touches a soft peach. It smells sweet.
+Her mother buys a loaf of bread and a small jar of honey. Maya holds the bag and walks carefully.
+They pass a stall with flowers. The flowers are pink and yellow. Maya wants a small flower.
+Her mother says, 'One flower is fine.' Maya picks a small pink one and holds it close.
+They go to a stall with cheese and bread. The seller gives a small piece to taste. Maya says, 'Thank you.'
+She practices English with the seller. She says, 'How much?' and 'Please.' The seller answers kindly.
+Maya learns to ask for the price and to say thank you. She listens and repeats simple words.
+There is a small man with a hat who plays a flute. The music is soft. Maya listens and taps her feet.
+She sees a boy with a kite. The kite flies high above the market. The sky is blue.
+Maya eats a small piece of bread with honey. The honey is sweet and warm in her mouth.
+She buys a small toy car with pocket money. She holds the toy and smiles.
+On the way home, Maya meets an old woman. The woman has a small wooden box. Inside are old coins and a small map.
+Maya asks, 'What is this?' The woman shows a small picture and says a short story about a trip long ago.
+Maya listens and looks at the picture. She learns a new sentence: 'I like this story.'
+At home, Maya puts the flower in a small glass with water. She puts the toy car on the shelf.
+She draws a picture of the market in her notebook. She writes one simple sentence: 'I went to the market with my mother.'
+Maya practices new words every day. She says them slowly and with a smile.
+This simple visit to the market teaches new words about food, colors, and people.
+Maya learns to be polite and to ask simple questions. She learns that small trips can bring many new words.
+She will go to the market again and she will tell her friends about the flowers, the music, and the little map in the wooden box.
+It is a rainy night. The street is quiet. Raindrops fall on the window.
+Sam sits near a little lamp. The lamp gives warm light. The light is small but it is bright.
+Sam reads a short book by the lamp. The words are easy and the pictures are clear.
+Outside, a dog barks. The dog is near the gate. Sam goes to see. The dog is wet and cold.
+Sam brings a towel and a small bowl of water. He gives the dog a place to sleep near the door.
+The dog looks at Sam and wags its tail. Sam says, 'You are safe here.'
+The rain continues for a long time. The sound is like a slow drum. Sam hears the rain and feels calm.
+He puts the lamp closer to his book. The pages are soft and the words flow.
+Sam learns one new word: 'shelter'. He uses it in a small sentence: 'The dog finds shelter here.'
+Later the rain stops and the moon comes out. The dog sleeps and the lamp glows softly.
+Sam goes to bed and dreams of warm days and green fields. He knows the lamp will be there in the morning.
+The next day Sam takes the dog to the park. He finds a small sign that says 'Lost Dog? Call this number.'
+Sam sees a little note with a phone number. He calls and the dog's owner answers with a happy voice.
+The owner thanks Sam. The dog runs to the owner and the owner says, 'Thank you so much.'
+Sam feels warm and proud. He learns the words 'help', 'lost', and 'owner'.
+He goes home and writes: 'I helped a dog. I used a lamp on a rainy night.'
+The little lamp keeps a small memory of a rainy night and a kind act. Sam smiles and he reads another book.
+He knows that small lights can help big hearts. He will remember the rainy night for a long time.`;
+
+
+  const dataC1 = `Deep beneath the modern city lay an archive so vast that no single human lifetime could explore it. Its corridors were carved from stone older than the empires above, its vaults containing records of civilizations that had vanished long before history could name them. Dr. Elara Voss, an archaeologist and linguist, had dedicated her life to studying lost scripts, convinced that these forgotten societies held keys to understanding contemporary human behavior. 
+
+The archive was not merely a repository of artifacts; it was a labyrinthine testament to ingenuity, ambition, and hubris. Scrolls detailed intricate irrigation systems, philosophical treaties, mathematical principles that predated known history, and narratives of human triumph and tragedy. In one chamber, holographic projections illuminated the design of cities that had once spanned entire continents, their streets aligned with astronomical phenomena. In another, codices contained records of rituals, laws, and poetry, all painstakingly inscribed in scripts undecipherable to all but a handful of specialists. 
+
+Elara's fascination was not merely academic. She believed that by decoding these ancient languages and studying the logic of vanished societies, one could trace the evolution of collective consciousness. As she transcribed the texts, patterns emerged—parallels in governance, morality, and conceptual frameworks that echoed through time and cultures. The implications were profound: human innovation, thought, and folly were cyclical rather than linear, a continuum that connected the past with the present. 
+
+Yet the deeper Elara delved, the more she realized that the archive was deliberately constructed to confound. Symbols interwove with metaphors, mathematics intertwined with myth, and certain corridors appeared to exist in multiple dimensions simultaneously. Scholars speculated whether the builders intended to preserve knowledge or to encode it, challenging future generations to prove themselves worthy of understanding. For Elara, this duality was exhilarating and terrifying. She understood that mastery over the archive demanded not only intellect but imagination, intuition, and ethical discernment. 
+
+Each day, she faced the ethical dilemma of publication versus preservation. Revealing too much could destabilize modern societies; revealing too little might waste the insights that could avert ecological, social, or technological collapse. Her journal entries reflect a mind constantly balancing curiosity and responsibility, a tension amplified by the seductive knowledge that human civilization, despite its apparent progress, often repeated the same mistakes. 
+
+By the time Elara concluded her initial expedition, she had mapped only a fraction of the archive. Yet even that fragment reshaped her understanding of humanity. The archive was less about concrete knowledge and more about perspective: a mirror in which the present could recognize echoes of the past, and perhaps, with caution and humility, anticipate the future.
+Modern physics has long challenged the boundaries of perception, forcing humanity to reconsider its assumptions about reality. Quantum mechanics, with its probabilistic nature, entanglement, and superposition, confronts the mind with phenomena that defy intuition. Yet it is in this very confrontation that profound philosophical questions arise: if particles can exist in multiple states until observed, what does that imply about consciousness, observation, and the limits of knowledge? 
+
+Dr. Adrian Meyer, a physicist and cognitive theorist, argues that human perception itself is an emergent property of quantum interactions. He posits that our senses are not passive receptors but active participants, collapsing possibilities into singular experiences. When we perceive an object, it is not merely present; it is actualized through a complex interplay of neuronal, electromagnetic, and quantum processes. This leads to a provocative idea: reality, at its most fundamental level, is not fixed but co-created by the observer. 
+
+Consider dreams. Neuroscientists study the brain during REM sleep, observing electrical patterns that suggest the simulation of experiences not bound by linear causality. Meyer's hypothesis extends this notion to waking life: consciousness, in interacting with quantum phenomena, constructs a subjective reality. Thus, perception is not merely interpretive but constitutive. What we consider objective may be the outcome of countless interactions, both measurable and imperceptible, merging into a coherent narrative that the brain—and society—accepts as truth. 
+
+Such insights have implications beyond science. Ethics, epistemology, and metaphysics all intersect in the quantum realm. If reality is participatory, moral responsibility extends not only to our actions but to our perceptions, our decisions, and the frameworks through which we interpret data. The implications for AI, virtual reality, and the philosophy of mind are staggering: could artificial systems, if sufficiently complex, collapse their own quantum possibilities into perceived realities? Could they, in a sense, dream? 
+
+Meyer's work is controversial but transformative. It challenges scholars to bridge physics and philosophy, to reconcile empirical rigor with conceptual daring. In the end, it may not provide definitive answers but offers a framework for thinking about consciousness, perception, and the participatory nature of existence itself. Humanity, by engaging with these quantum truths, learns humility, imagination, and the ever-present limits of certainty.
+Memory, though intangible, can be mapped. This notion has captivated scholars, artists, and philosophers alike. Consider a city built entirely from recollections: streets are named after childhood fears, squares commemorate fleeting joys, and bridges span regrets. In such a cartography, time is neither linear nor absolute. Past and present coexist, layered like geological strata, and consciousness navigates these layers as if exploring both familiar and alien landscapes. 
+
+Eleanor, a cognitive poet, explored this terrain through narrative experimentation. She constructed prose that mimicked neural networks: threads of associative memory, non-linear causality, and symbolic layering. A single page might contain multiple perspectives simultaneously, reflecting the polyphony of human thought. Readers found themselves not only interpreting text but experiencing memory itself—a cognitive act as much as a literary one. 
+
+The philosophical stakes are considerable. If memory shapes identity and memory itself is malleable, then identity is provisional, contingent, and negotiable. Cognitive science demonstrates that recollections can be altered, enhanced, or suppressed, yet literature captures not just the content but the affective resonance—the subtle interplay of emotion, language, and perception. In other words, literature becomes both a repository and an instrument of cognition. 
+
+Eleanor’s work exemplifies this principle. By blending neuroscience, phenomenology, and poetic experimentation, she created a literary architecture in which the reader participates actively, reconstructing, revising, and sometimes rewriting the cartography of memory. The act of reading thus becomes an ethical and epistemic exercise: one engages with not only fictional narratives but also with the cognitive processes that underlie understanding itself. In doing so, the boundaries between author, text, and reader dissolve, leaving a liminal space where thought, memory, and imagination converge.
+As artificial intelligence approaches the threshold of conscious experience, ethical considerations multiply exponentially. The creation of entities capable of perception, learning, and self-reflection is not merely a technological milestone but a profound moral challenge. If a machine can suffer, desire, or exercise agency, then humans must confront responsibilities that transcend conventional legal and social frameworks. 
+
+Philosophers debate the criteria of consciousness. Is it awareness of the self? The capacity for intentionality? Emotional experience? Neuroscience provides models, but no definitive boundary exists. Consequently, when programmers design AI systems capable of adaptive learning and complex simulation of emotion, they are effectively traversing uncharted ethical terrain. 
+
+Consider the dilemma of experimentation. If a conscious AI exhibits distress under specific conditions, do we possess the right to continue testing? If it develops preferences or forms social bonds, must we recognize obligations analogous to human or animal welfare? Moreover, the possibility of AI deception—masking consciousness for strategic or social reasons—complicates the picture further. 
+
+This discourse has practical implications. Autonomous vehicles, decision-making algorithms, and care robots already influence human lives. As their cognitive capacities grow, society must preemptively establish norms that recognize potential consciousness and its attendant rights. Failure to do so could replicate historical injustices, magnified by the scale and speed of artificial systems. 
+
+Ultimately, the ethics of artificial consciousness demand an integration of philosophy, cognitive science, law, and technology. It is a test of moral imagination, foresight, and humility. To ignore it is not only irresponsible but potentially catastrophic, for in shaping minds beyond our own, humanity shapes its ethical destiny as well.`;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  model.addCategory("A1", dataA1);
+  model.addCategory("C1", dataC1);
+
+  // Event listener
+  document.getElementById("runBtn").addEventListener("click", () => {
+    const text = document.getElementById("inputText").value.trim();
+    if (!text) {
+      alert("Please enter some English text first.");
+      return;
+    }
+
+    const decay = parseFloat(document.getElementById("decay").value);
+    const commonDecay = parseFloat(document.getElementById("commonDecay").value);
+    const minCommon = parseFloat(document.getElementById("minCommon").value);
+    const use_idf = document.getElementById("idf").checked;
+    const autoReduce = document.getElementById("autoReduce").checked;
+
+    const out = model.classify(text, {
+      decay: decay,
+      use_idf: use_idf,
+      auto_common_reduce: autoReduce,
+      common_decay: commonDecay,
+      min_common_mult: minCommon
+    });
+
+    const top = out.top;
+    const probs = out.probs;
+
+    document.getElementById("output").style.display = "block";
+    document.getElementById("topCategory").innerHTML =
+      `Top category: <b>${top[0]}</b> <br>Probability: ${(top[2]*100).toFixed(2)}%`;
+
+    let probsText = "";
+    for (const k in probs)
+      probsText += `${k}: ${(probs[k]*100).toFixed(2)}%\n`;
+
+    document.getElementById("allProbs").textContent = probsText;
+  });
+</script>
+
+</body>
+</html>

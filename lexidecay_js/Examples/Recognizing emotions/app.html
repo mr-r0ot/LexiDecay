@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LexiDecay Emotion AI</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0c0f13;
+    --card: #141821;
+    --accent: #00fff2;
+    --accent2: #ff007a;
+    --text: #eaeaea;
+    --muted: #aaa;
+  }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: radial-gradient(circle at top, #1a1f27, #090b0f);
+    color: var(--text);
+    margin: 0;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: 100vh;
+    padding: 40px 10px;
+  }
+
+  .app {
+    background: var(--card);
+    border-radius: 20px;
+    box-shadow: 0 0 40px rgba(0, 255, 242, 0.1), 0 0 80px rgba(255, 0, 122, 0.05);
+    max-width: 800px;
+    width: 100%;
+    padding: 30px 40px;
+    animation: fadeIn 1s ease;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  h1 {
+    text-align: center;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-size: 28px;
+    margin-bottom: 15px;
+  }
+
+  p.subtitle {
+    text-align: center;
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 25px;
+  }
+
+  textarea {
+    width: 100%;
+    height: 100px;
+    background: #1b1f27;
+    color: #fff;
+    border: 1px solid #333;
+    border-radius: 12px;
+    padding: 10px;
+    font-size: 14px;
+    resize: none;
+  }
+
+  .file-upload {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 10px;
+    margin-top: 15px;
+  }
+
+  .file-upload label {
+    font-size: 13px;
+    background: #1d222c;
+    border-radius: 10px;
+    padding: 10px;
+    text-align: center;
+    cursor: pointer;
+    border: 1px solid #333;
+    transition: 0.3s;
+  }
+
+  .file-upload label:hover {
+    background: #252b36;
+  }
+
+  input[type="file"] {
+    display: none;
+  }
+
+  .controls {
+    margin-top: 20px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+  }
+
+  .controls label {
+    font-size: 13px;
+  }
+
+  .controls input[type="number"], .controls input[type="checkbox"] {
+    margin-left: 6px;
+    padding: 4px;
+    border-radius: 6px;
+    border: none;
+    background: #222;
+    color: #fff;
+  }
+
+  button {
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    color: #000;
+    font-weight: 600;
+    font-size: 15px;
+    border: none;
+    border-radius: 12px;
+    padding: 12px;
+    width: 100%;
+    margin-top: 20px;
+    cursor: pointer;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+  }
+
+  button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0 15px rgba(0, 255, 242, 0.4);
+  }
+
+  .result {
+    margin-top: 25px;
+    background: #0f1319;
+    border-radius: 16px;
+    padding: 20px;
+    border: 1px solid #1f2633;
+  }
+
+  .result h3 {
+    color: var(--accent);
+    margin-bottom: 10px;
+  }
+
+  .bar {
+    height: 10px;
+    border-radius: 6px;
+    background: #2a2f3a;
+    overflow: hidden;
+    margin-bottom: 8px;
+  }
+
+  .bar-fill {
+    height: 100%;
+    border-radius: 6px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+  }
+
+  .prob-line {
+    font-size: 13px;
+    display: flex;
+    justify-content: space-between;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>💫 LexiDecay Emotion Recognizer</h1>
+  <p class="subtitle">
+    Artificial intelligence model based on LexiDecay for recognizing emotions.<br>
+    *Naturally, AI results may not be fully accurate.
+  </p>
+
+  <div class="file-upload">
+    <label>ANGER <input type="file" id="ANGER" accept=".txt"></label>
+    <label>FEAR <input type="file" id="FEAR" accept=".txt"></label>
+    <label>JOY <input type="file" id="JOY" accept=".txt"></label>
+    <label>LOVE <input type="file" id="LOVE" accept=".txt"></label>
+    <label>SADNESS <input type="file" id="SADNESS" accept=".txt"></label>
+  </div>
+
+  <div class="controls">
+    <label>Decay <input type="number" id="decay" step="0.1" min="0" max="1" value="0.4"></label>
+    <label>Common Decay <input type="number" id="commonDecay" step="0.1" min="0" max="1" value="0.1"></label>
+    <label>Min Common Mult <input type="number" id="minCommon" step="0.01" min="0.01" max="1" value="0.08"></label>
+    <label><input type="checkbox" id="idf" checked> Use IDF</label>
+  </div>
+
+  <textarea id="inputText" placeholder="Enter English text to analyze emotion..."></textarea>
+  <button id="analyzeBtn">Analyze Emotion</button>
+
+  <div class="result" id="output" style="display:none;">
+    <h3>Detected Emotion</h3>
+    <p id="topEmotion"></p>
+    <div id="bars"></div>
+  </div>
+</div>
+
+<script src="lexidecay.js"></script>
+<script>
+function readFile(input) {
+  return new Promise((resolve, reject) => {
+    const file = input.files[0];
+    if (!file) return resolve(null);
+    const reader = new FileReader();
+    reader.onload = e => resolve(e.target.result);
+    reader.onerror = reject;
+    reader.readAsText(file);
+  });
+}
+
+document.getElementById("analyzeBtn").addEventListener("click", async () => {
+  const text = document.getElementById("inputText").value.trim();
+  if (!text) return alert("Enter some English text first!");
+
+  const emotions = ["ANGER", "FEAR", "JOY", "LOVE", "SADNESS"];
+  const data = {};
+
+  for (const e of emotions) {
+    data[e] = await readFile(document.getElementById(e));
+    if (!data[e]) return alert(`Please select the file for ${e}`);
+  }
+
+  const decay = parseFloat(document.getElementById("decay").value);
+  const commonDecay = parseFloat(document.getElementById("commonDecay").value);
+  const minCommon = parseFloat(document.getElementById("minCommon").value);
+  const use_idf = document.getElementById("idf").checked;
+
+  const model = new LexiDecayModel();
+  for (const e of emotions) model.addCategory(e, data[e]);
+
+  const out = model.classify(text, {
+    decay: decay,
+    use_idf: use_idf,
+    auto_common_reduce: true,
+    common_decay: commonDecay,
+    min_common_mult: minCommon
+  });
+
+  const top = out.top;
+  const probs = out.probs;
+
+  document.getElementById("output").style.display = "block";
+  document.getElementById("topEmotion").innerHTML = 
+    `Top emotion: <b>${top[0]}</b> — ${(top[2]*100).toFixed(2)}% confidence`;
+
+  const barsDiv = document.getElementById("bars");
+  barsDiv.innerHTML = "";
+  for (const k in probs) {
+    const pct = (probs[k]*100).toFixed(2);
+    barsDiv.innerHTML += `
+      <div class="prob-line"><span>${k}</span><span>${pct}%</span></div>
+      <div class="bar"><div class="bar-fill" style="width:${pct}%;"></div></div>
+    `;
+  }
+});
+</script>
+</body>
+</html>
