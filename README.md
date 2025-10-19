@@ -8,6 +8,7 @@
 
 ## 🪶 Web
 > See our site [https://mr-r0ot.github.io/LexiDecay](https://mr-r0ot.github.io/LexiDecay)
+> Luckily, we support **js** in addition to Python! [Full explanation and explanation](https://github.com/mr-r0ot/LexiDecay/tree/main/lexidecay_js)
 
 ## 🌌 Algorithm Philosophy & Core Idea
 
@@ -176,7 +177,7 @@ m.add_category("sports", ["football", "strength", "competition"])
 
 res = m.classify("New AI model beats humans at creative painting tasks.")
 print(res)
-# Output → ('art', score, probability)
+# Output → ('tech', score, probability)
 ```
 
 ---
