@@ -1,5 +1,10 @@
 # LexiDecay v2
 
+
+![LexiDecaylogo](lxd_logo.png)
+
+
+
 [![PyPI](https://img.shields.io/pypi/v/LexiDecay)](https://pypi.org/project/LexiDecay/)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue)](https://www.apache.org/licenses/LICENSE-2.0)
 [![Python](https://img.shields.io/badge/python-3.8%2B-blue)](https://www.python.org/)
