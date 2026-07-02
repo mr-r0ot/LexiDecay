@@ -1,472 +1,782 @@
-<!doctype html>
-<html lang="en">
+<!DOCTYPE html>
+<html>
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>LexiDecay — The Adaptive Lexical Decay Classifier</title>
-  <meta name="description" content="LexiDecay — blazing-fast, semi-supervised lexical decay classifier. Instant, explainable text classification without training." />
-  <!-- Google Fonts -->
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
-  <style>
-    :root{
-      --bg:#0b0d10; /* deep dark */
-      --panel:#0f1114;
-      --muted:#98a0b3;
-      --accent:#8be9fd; /* cyan accent */
-      --accent-2:#c792ea; /* purple */
-      --glass: rgba(255,255,255,0.04);
-      --glass-2: rgba(255,255,255,0.02);
-      --card:#0d0f12;
-      --radius:16px;
-      --glass-border: rgba(255,255,255,0.06);
-      --max-width:1100px;
-    }
-    *{box-sizing:border-box}
-    html,body{height:100%}
-    body{
-      margin:0; font-family:Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; background:var(--bg); color:#e6eef8; -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; line-height:1.45;
-      -webkit-tap-highlight-color: transparent;
-    }
-    /* Background canvas sits behind everything */
-    #bgCanvas{position:fixed; inset:0; z-index:0; pointer-events:none}
-
-    .wrap{position:relative; z-index:2; max-width:var(--max-width); margin:0 auto; padding:48px 28px}
-
-    header{position:sticky; top:12px; z-index:5; display:flex; align-items:center; justify-content:space-between; padding:12px 20px; border-radius:14px; background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); backdrop-filter: blur(6px); border:1px solid var(--glass-border); margin:8px auto 28px; max-width:var(--max-width)}
-    .logo{display:flex; align-items:center; gap:12px}
-    .logo .mark{width:44px; height:44px; border-radius:10px; display:flex; align-items:center; justify-content:center; background:linear-gradient(135deg,var(--accent),var(--accent-2)); box-shadow:0 6px 18px rgba(140,50,200,0.14); font-weight:800; color:#081018}
-    .logo h1{font-size:16px; margin:0; letter-spacing:0.2px}
-    nav{display:flex; gap:18px; align-items:center}
-    nav a{color:var(--muted); text-decoration:none; font-weight:600; font-size:13px}
-    nav a:hover{color:var(--accent)}
-    .cta{display:flex; gap:10px; align-items:center}
-    .btn{padding:10px 14px; border-radius:12px; font-weight:700; font-size:13px; cursor:pointer; border:1px solid transparent}
-    .btn-primary{background:linear-gradient(90deg,var(--accent),var(--accent-2)); color:#041017; box-shadow:0 8px 30px rgba(139,233,253,0.08), 0 2px 6px rgba(200,120,255,0.05);}
-    .btn-ghost{background:transparent; border:1px solid var(--glass-border); color:var(--muted)}
-
-    /* Hero */
-    .hero{display:grid; grid-template-columns:1fr 420px; gap:36px; align-items:center; padding:64px 0}
-    .hero .left{padding-right:8px}
-    .eyebrow{display:inline-flex; gap:10px; align-items:center; color:var(--muted); font-size:13px}
-    .eyebrow .pill{background:linear-gradient(90deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01)); padding:6px 10px; border-radius:999px; border:1px solid var(--glass-border)}
-    h2.title{font-family:Poppins, Inter; font-weight:700; letter-spacing:-0.6px; font-size:44px; margin:12px 0 8px; line-height:1.03}
-    p.lead{color:var(--muted); font-size:16px; margin:0 0 20px; max-width:68%}
-    a{color: #c1f0cf;}
-
-    .stats{display:flex; gap:18px; margin-top:18px}
-    .stat{background:linear-gradient(180deg, rgba(255,255,255,0.02), transparent); border:1px solid var(--glass-border); padding:12px 14px; border-radius:12px; min-width:120px}
-    .stat strong{display:block; font-size:18px}
-    .stat span{color:var(--muted); font-size:13px}
-
-    /* hero right: card with animated preview */
-    .card{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); border-radius:14px; padding:18px; border:1px solid var(--glass-border); box-shadow:0 6px 30px rgba(2,6,16,0.6)}
-    .mini-preview{height:360px; width:100%; border-radius:12px; overflow:hidden; display:flex; flex-direction:column}
-    .preview-header{display:flex; gap:8px; align-items:center; padding:12px}
-    .dots{display:flex; gap:8px}
-    .dot{width:10px;height:10px;border-radius:50%}
-    .dot.r{background:#ff6b6b}
-    .dot.y{background:#f6d365}
-    .dot.g{background:#6bd27f}
-    .preview-body{flex:1; padding:12px 16px; display:flex; flex-direction:column; gap:8px}
-    .preview-line{height:14px; background:linear-gradient(90deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02)); border-radius:8px}
-
-    /* features */
-    .features{display:grid; grid-template-columns:repeat(3,1fr); gap:18px; margin:48px 0}
-    .feature{background:linear-gradient(180deg, rgba(255,255,255,0.015), rgba(255,255,255,0.01)); border-radius:12px; padding:18px; border:1px solid var(--glass-border); transition:transform .36s cubic-bezier(.2,.9,.3,1), box-shadow .36s}
-    .feature:hover{transform:translateY(-8px) rotate(-0.2deg); box-shadow:0 30px 60px rgba(7,12,20,0.6)}
-    .feature svg{width:44px;height:44px}
-    .feature h3{margin:8px 0 6px}
-    .feature p{margin:0; color:var(--muted); font-size:14px}
-
-    /* interactive demo */
-    .demo{display:grid; grid-template-columns:1fr 360px; gap:20px; align-items:start; margin:28px 0}
-    .demo .panel{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); border-radius:12px; padding:16px; border:1px solid var(--glass-border)}
-    .controls{display:flex; gap:8px; align-items:center; margin-bottom:8px}
-    .field{display:flex; flex-direction:column; gap:6px}
-    textarea{width:100%; min-height:140px; resize:vertical; padding:12px; border-radius:10px; background:transparent; border:1px dashed var(--glass-border); color:inherit}
-    label{font-size:13px; color:var(--muted)}
-    .small{font-size:13px; color:var(--muted)}
-    .prob-list{display:flex; flex-direction:column; gap:8px; margin-top:10px}
-    .prob{display:flex; justify-content:space-between; gap:12px; align-items:center}
-    .bar{height:10px; flex:1; border-radius:999px; background:linear-gradient(90deg, rgba(255,255,255,0.03), rgba(255,255,255,0.02)); margin-right:10px; overflow:hidden}
-    .bar > i{display:block; height:100%; border-radius:999px; background:linear-gradient(90deg,var(--accent),var(--accent-2));}
-
-    /* code */
-    pre{background:linear-gradient(180deg, rgba(2,6,20,0.6), rgba(2,6,20,0.5)); padding:16px; border-radius:10px; overflow:auto; border:1px solid rgba(255,255,255,0.03)}
-    code{font-family:monospace; font-size:13px; color:#dbeafe}
-
-    /* footer */
-    footer{margin-top:48px; padding:36px 18px; border-radius:12px; background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.005)); border:1px solid var(--glass-border)}
-    .foot-grid{display:flex; justify-content:space-between; gap:20px; align-items:center}
-    .socials{display:flex; gap:12px}
-    .muted{color:var(--muted)}
-
-    /* responsive */
-    @media (max-width:980px){
-      .hero{grid-template-columns:1fr}
-      .demo{grid-template-columns:1fr}
-      nav{display:none}
-      header{padding:12px}
-    }
-
-    /* subtle focus styles */
-    a:focus, button:focus, textarea:focus{outline:3px solid rgba(139,233,253,0.12); outline-offset:2px}
-
-    /* reveal animations */
-    .reveal{opacity:0; transform:translateY(18px); transition:opacity .6s ease, transform .6s cubic-bezier(.2,.9,.3,1)}
-    .reveal.show{opacity:1; transform:none}
-
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+<template id="__bundler_thumbnail" data-bg-color="#12121c">
+  <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="tgrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#a06bf2"></stop>
+        <stop offset="100%" stop-color="#5fd0e6"></stop>
+      </linearGradient>
+    </defs>
+    <rect width="200" height="200" fill="#12121c"></rect>
+    <line x1="70" y1="46" x2="70" y2="102" stroke="url(#tgrad)" stroke-width="12" stroke-linecap="round"></line>
+    <line x1="70" y1="102" x2="70" y2="148" stroke="url(#tgrad)" stroke-width="12" stroke-linecap="round" opacity="0.75"></line>
+    <line x1="70" y1="148" x2="140" y2="148" stroke="url(#tgrad)" stroke-width="12" stroke-linecap="round" opacity="0.55"></line>
+    <circle cx="70" cy="46" r="20" fill="url(#tgrad)"></circle>
+    <circle cx="70" cy="102" r="15" fill="url(#tgrad)" opacity="0.8"></circle>
+    <circle cx="70" cy="148" r="12" fill="url(#tgrad)" opacity="0.6"></circle>
+    <circle cx="140" cy="148" r="9" fill="url(#tgrad)" opacity="0.4"></circle>
+  </svg>
+</template>
 </head>
 <body>
-  <canvas id="bgCanvas" aria-hidden="true"></canvas>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    @keyframes ld-blob-a { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(60px,-40px) scale(1.18); } }
+    @keyframes ld-blob-b { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(-70px,50px) scale(1.12); } }
+    @keyframes ld-blob-c { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(40px,60px) scale(1.15); } }
+    @keyframes ld-pulse { 0%,100% { opacity:0.35; } 50% { opacity:0.9; } }
+    @keyframes ld-bounce { 0%,100% { transform: translateY(0); } 50% { transform: translateY(10px); } }
+    @keyframes ld-float { 0%,100% { transform: translateY(0) translateX(0); opacity:0.25; } 50% { transform: translateY(-26px) translateX(8px); opacity:0.9; } }
+    @keyframes ld-shimmer { 0% { background-position: 0% 50%; } 100% { background-position: 200% 50%; } }
+    body { margin:0; }
+  </style>
+</helmet>
 
-  <div class="wrap" role="main">
-    <header>
-      <div class="logo">
-        <div class="mark" aria-hidden>LD</div>
-        <div>
-          <h1>LexiDecay</h1>
-          <div class="muted" style="font-size:12px">Adaptive Lexical Decay Classifier</div>
+<div dir="ltr" lang="en" style="min-height:100vh; background:var(--bg); color:var(--fg); font-family:'Manrope',sans-serif; position:relative; overflow-x:hidden; cursor:none; --bg:oklch(0.14 0.02 265); --fg:oklch(0.97 0.01 265); --muted:oklch(0.80 0.03 265 / 0.75); --glass:oklch(1 0 0 / 0.045); --glass-strong:oklch(1 0 0 / 0.08); --glass-border:oklch(1 0 0 / 0.10); --violet:{{ accentA }}; --cyan:{{ accentB }};">
+
+  <svg width="0" height="0" style="position:absolute">
+    <defs>
+      <linearGradient id="brandGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="var(--violet)"></stop>
+        <stop offset="100%" stop-color="var(--cyan)"></stop>
+      </linearGradient>
+    </defs>
+  </svg>
+
+  <!-- AMBIENT BACKGROUND -->
+  <div style="position:fixed; inset:0; z-index:0; pointer-events:none; overflow:hidden;">
+    <div style="position:absolute; top:-14%; left:-8%; width:620px; height:620px; border-radius:50%; background:radial-gradient(circle, var(--violet) 0%, transparent 70%); opacity:0.24; filter:blur(60px); animation:ld-blob-a 24s ease-in-out infinite; animation-play-state:{{ motionState }};"></div>
+    <div style="position:absolute; top:26%; right:-12%; width:560px; height:560px; border-radius:50%; background:radial-gradient(circle, var(--cyan) 0%, transparent 70%); opacity:0.20; filter:blur(60px); animation:ld-blob-b 28s ease-in-out infinite; animation-play-state:{{ motionState }};"></div>
+    <div style="position:absolute; bottom:-16%; left:24%; width:600px; height:600px; border-radius:50%; background:radial-gradient(circle, var(--violet) 0%, transparent 70%); opacity:0.18; filter:blur(65px); animation:ld-blob-c 32s ease-in-out infinite; animation-play-state:{{ motionState }};"></div>
+    <div style="position:absolute; inset:0; background-image:radial-gradient(oklch(1 0 0 / 0.05) 1px, transparent 1px); background-size:40px 40px; opacity:0.6;"></div>
+    <sc-for list="{{ particles }}" as="p" hint-placeholder-count="14">
+      <div style="position:absolute; top:{{ p.top }}%; left:{{ p.left }}%; width:{{ p.size }}px; height:{{ p.size }}px; border-radius:50%; background:{{ p.color }}; animation:ld-float {{ p.duration }}s ease-in-out infinite; animation-delay:{{ p.delay }}s; animation-play-state:{{ motionState }};"></div>
+    </sc-for>
+  </div>
+
+  <!-- CUSTOM CURSOR -->
+  <sc-if value="{{ cursorEnabled }}" hint-placeholder-val="{{ false }}">
+    <div ref="{{ cursorDotRef }}" style="position:fixed; top:0; left:0; width:8px; height:8px; border-radius:50%; background:var(--cyan); pointer-events:none; z-index:9999; mix-blend-mode:difference; will-change:transform;"></div>
+    <div ref="{{ cursorRingRef }}" style="position:fixed; top:0; left:0; width:36px; height:36px; border-radius:50%; border:1.5px solid var(--violet); pointer-events:none; z-index:9998; transition:width .2s ease, height .2s ease, border-color .2s ease; will-change:transform;"></div>
+  </sc-if>
+
+  <div style="position:relative; z-index:1;">
+
+  <!-- NAV -->
+  <div data-screen-label="Nav" style="position:fixed; top:0; right:0; left:0; z-index:50; display:flex; align-items:center; justify-content:space-between; gap:16px; padding:14px clamp(16px,4vw,48px); background:oklch(0.12 0.02 265 / 0.65); backdrop-filter:blur(18px); -webkit-backdrop-filter:blur(18px); border-bottom:1px solid var(--glass-border);">
+    <a href="#top" data-cursor-hover="1" style="display:flex; align-items:center; gap:10px; text-decoration:none; color:var(--fg);">
+      <svg width="30" height="30" viewBox="0 0 64 64"><line x1="18" y1="14" x2="18" y2="34" stroke="url(#brandGrad)" stroke-width="4" stroke-linecap="round"></line><line x1="18" y1="34" x2="18" y2="50" stroke="url(#brandGrad)" stroke-width="4" stroke-linecap="round" opacity="0.75"></line><line x1="18" y1="50" x2="40" y2="50" stroke="url(#brandGrad)" stroke-width="4" stroke-linecap="round" opacity="0.55"></line><circle cx="18" cy="14" r="7" fill="url(#brandGrad)"></circle><circle cx="18" cy="34" r="5.5" fill="url(#brandGrad)" opacity="0.8"></circle><circle cx="18" cy="50" r="4.5" fill="url(#brandGrad)" opacity="0.6"></circle><circle cx="40" cy="50" r="3.4" fill="url(#brandGrad)" opacity="0.4"></circle></svg>
+      <span style="font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:19px; letter-spacing:0.3px;">LexiDecay</span>
+    </a>
+
+    <div style="display:flex; align-items:center; gap:10px;">
+      <div style="align-items:center; gap:26px; display:flex;">
+        <a href="#highlights" data-cursor-hover="1" style="color:var(--muted); text-decoration:none; font-size:14.5px; font-weight:500; transition:color .2s;" style-hover="color:var(--cyan);">Highlights</a>
+        <a href="#how-it-works" data-cursor-hover="1" style="color:var(--muted); text-decoration:none; font-size:14.5px; font-weight:500; transition:color .2s;" style-hover="color:var(--cyan);">How it works</a>
+        <sc-if value="{{ showDemo }}" hint-placeholder-val="{{ true }}">
+          <a href="#demo" data-cursor-hover="1" style="color:var(--muted); text-decoration:none; font-size:14.5px; font-weight:500; transition:color .2s;" style-hover="color:var(--cyan);">Live demo</a>
+        </sc-if>
+        <a href="#benchmarks" data-cursor-hover="1" style="color:var(--muted); text-decoration:none; font-size:14.5px; font-weight:500; transition:color .2s;" style-hover="color:var(--cyan);">Benchmarks</a>
+        <a href="#api" data-cursor-hover="1" style="color:var(--muted); text-decoration:none; font-size:14.5px; font-weight:500; transition:color .2s;" style-hover="color:var(--cyan);">API</a>
+      </div>
+      <a href="https://github.com/mr-r0ot/LexiDecay" target="_blank" rel="noopener" data-cursor-hover="1" style="text-decoration:none; color:var(--fg); font-size:13.5px; font-weight:600; padding:9px 18px; border-radius:999px; border:1px solid var(--glass-border); background:var(--glass); transition:border-color .2s, transform .2s;" style-hover="border-color:var(--cyan); transform:translateY(-2px);">GitHub</a>
+    </div>
+  </div>
+
+  <!-- HERO -->
+  <div id="top" data-screen-label="Hero" style="position:relative; min-height:100vh; display:flex; flex-direction:column; justify-content:center; padding:150px clamp(20px,6vw,80px) 80px; overflow:hidden;">
+
+    <svg viewBox="0 0 800 500" preserveAspectRatio="xMidYMid slice" style="position:absolute; inset:0; width:100%; height:100%; opacity:0.55; pointer-events:none;">
+      <line x1="120" y1="90" x2="260" y2="160" stroke="var(--glass-border)" stroke-width="1.5"></line>
+      <line x1="260" y1="160" x2="230" y2="290" stroke="var(--glass-border)" stroke-width="1.5"></line>
+      <line x1="260" y1="160" x2="420" y2="120" stroke="var(--glass-border)" stroke-width="1.5"></line>
+      <line x1="420" y1="120" x2="560" y2="200" stroke="var(--glass-border)" stroke-width="1.5"></line>
+      <line x1="560" y1="200" x2="680" y2="140" stroke="var(--glass-border)" stroke-width="1.5"></line>
+      <line x1="560" y1="200" x2="600" y2="340" stroke="var(--glass-border)" stroke-width="1.5"></line>
+      <line x1="230" y1="290" x2="360" y2="380" stroke="var(--glass-border)" stroke-width="1.5"></line>
+      <line x1="360" y1="380" x2="530" y2="410" stroke="var(--glass-border)" stroke-width="1.5"></line>
+      <circle cx="120" cy="90" r="6" fill="url(#brandGrad)" style="animation:ld-pulse 5s ease-in-out infinite;"></circle>
+      <circle cx="260" cy="160" r="9" fill="url(#brandGrad)" style="animation:ld-pulse 4s ease-in-out infinite;"></circle>
+      <circle cx="230" cy="290" r="5" fill="url(#brandGrad)" opacity="0.6" style="animation:ld-pulse 6s ease-in-out infinite;"></circle>
+      <circle cx="420" cy="120" r="7" fill="url(#brandGrad)" opacity="0.8" style="animation:ld-pulse 4.5s ease-in-out infinite;"></circle>
+      <circle cx="560" cy="200" r="8" fill="url(#brandGrad)" style="animation:ld-pulse 5.5s ease-in-out infinite;"></circle>
+      <circle cx="680" cy="140" r="5" fill="url(#brandGrad)" opacity="0.55" style="animation:ld-pulse 6.5s ease-in-out infinite;"></circle>
+      <circle cx="600" cy="340" r="6" fill="url(#brandGrad)" opacity="0.65" style="animation:ld-pulse 5s ease-in-out infinite;"></circle>
+      <circle cx="360" cy="380" r="5.5" fill="url(#brandGrad)" opacity="0.5" style="animation:ld-pulse 7s ease-in-out infinite;"></circle>
+      <circle cx="530" cy="410" r="4.5" fill="url(#brandGrad)" opacity="0.45" style="animation:ld-pulse 6s ease-in-out infinite;"></circle>
+    </svg>
+
+    <div style="position:relative; z-index:2; max-width:1320px; margin:0 auto; width:100%; display:flex; flex-wrap:wrap; gap:50px; align-items:center;">
+      <div style="flex:1 1 480px;">
+        <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:24px;">
+          <span style="font-size:12.5px; font-weight:600; padding:6px 14px; border-radius:999px; background:var(--glass); border:1px solid var(--glass-border); color:var(--muted);">Fast · O(n·m)</span>
+          <span style="font-size:12.5px; font-weight:600; padding:6px 14px; border-radius:999px; background:var(--glass); border:1px solid var(--glass-border); color:var(--muted);">No black box</span>
+          <span style="font-size:12.5px; font-weight:600; padding:6px 14px; border-radius:999px; background:var(--glass); border:1px solid var(--glass-border); color:var(--muted);">Apache 2.0</span>
+        </div>
+        <h1 style="font-size:clamp(40px,6vw,72px); line-height:1.1; font-weight:800; margin:0 0 20px; font-family:'Space Grotesk',sans-serif;">
+          <span style="background:linear-gradient(90deg,var(--violet),var(--cyan),var(--violet)); background-size:200% auto; -webkit-background-clip:text; background-clip:text; color:transparent; animation:ld-shimmer 6s linear infinite; animation-play-state:{{ motionState }};">LexiDecay v2</span><br>
+          Graph-based text classification you can actually explain
+        </h1>
+        <p style="font-size:clamp(16px,2vw,19px); line-height:1.9; color:var(--muted); max-width:600px; margin:0 0 34px;">
+          No neural networks. No GPU. No embeddings. LexiDecay builds a statistical co-occurrence graph from your training text and returns full, human-readable evidence for every prediction — from spam filtering and intent detection to custom semantic classifiers.
+        </p>
+        <div style="display:flex; flex-wrap:wrap; gap:14px;">
+          <a href="https://github.com/mr-r0ot/LexiDecay" target="_blank" rel="noopener" data-cursor-hover="1" style="text-decoration:none; font-weight:700; font-size:15px; color:oklch(0.14 0.02 265); padding:15px 30px; border-radius:14px; background:linear-gradient(90deg,var(--violet),var(--cyan)); transition:transform .2s, box-shadow .2s;" style-hover="transform:translateY(-3px); box-shadow:0 14px 34px oklch(0 0 0 / 0.4);">View on GitHub</a>
+          <a href="https://pypi.org/project/LexiDecay/" target="_blank" rel="noopener" data-cursor-hover="1" style="text-decoration:none; font-weight:700; font-size:15px; color:var(--fg); padding:15px 30px; border-radius:14px; background:var(--glass); border:1px solid var(--glass-border); transition:transform .2s, border-color .2s;" style-hover="transform:translateY(-3px); border-color:var(--cyan);">pip install LexiDecay</a>
+          <a href="https://github.com/mr-r0ot/LexiDecay/blob/main/documents.md" target="_blank" rel="noopener" data-cursor-hover="1" style="text-decoration:none; font-weight:700; font-size:15px; color:var(--fg); padding:15px 30px; border-radius:14px; background:transparent; border:1px solid var(--glass-border); transition:transform .2s, border-color .2s;" style-hover="transform:translateY(-3px); border-color:var(--cyan);">Full docs</a>
         </div>
       </div>
 
-      <nav aria-label="Primary">
-        <a href="#features">Features</a>
-        <a href="#demo">Demo</a>
-        <a href="#code">Code</a>
-        <a href="https://github.com/mr-r0ot/LexiDecay">Docs</a>
-        <a href="#examples">Examples</a>
-      </nav>
-
-      <div class="cta">
-        <a class="btn btn-ghost" href="https://github.com/mr-r0ot/LexiDecay">Docs</a>
-        <a class="btn btn-primary" href="#demo">Get Started</a>
-      </div>
-    </header>
-
-    <section class="hero">
-      <div class="left">
-        <div class="eyebrow reveal" style="--d:0s"><span class="pill">Open Source • No Training</span></div>
-        <h2 class="title reveal" style="--d:.06s">LexiDecay — instant, explainable text classification</h2>
-        <p class="lead reveal" style="--d:.12s">A blazing-fast, semi-supervised lexical decay classifier that scores and classifies text without training. Adaptive frequency decay, IDF toggles, and transparent scoring make LexiDecay ideal for topic classification, intent detection and lightweight cognitive systems.</p>
-
-        <div class="stats reveal" style="--d:.18s">
-          <div class="stat"><strong>O(n·m)</strong><span>Lightning inference</span></div>
-          <div class="stat"><strong>No training</strong><span>Instant deploy</span></div>
-          <div class="stat"><strong>Explainable</strong><span>Transparent lexical logic</span></div>
-        </div>
-      </div>
-
-      <div class="card reveal" style="--d:.24s">
-        <div class="mini-preview">
-          <div class="preview-header">
-            <div class="dots"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span></div>
-            <div style="margin-left:auto; color:var(--muted); font-size:13px">Live client preview</div>
+      <div style="flex:1 1 380px; max-width:460px; margin:0 auto; position:relative;" data-glow="1">
+        <div style="position:absolute; inset:0; border-radius:20px; background:radial-gradient(480px circle at var(--mx,50%) var(--my,20%), oklch(1 0 0 / 0.14), transparent 45%); pointer-events:none; z-index:2;"></div>
+        <div style="position:relative; z-index:1; background:var(--glass-strong); border:1px solid var(--glass-border); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); border-radius:20px; box-shadow:0 20px 60px oklch(0 0 0 / 0.45); overflow:hidden;">
+          <div style="display:flex; align-items:center; gap:8px; padding:14px 18px; border-bottom:1px solid var(--glass-border);">
+            <span style="width:11px; height:11px; border-radius:50%; background:oklch(0.65 0.18 25);"></span>
+            <span style="width:11px; height:11px; border-radius:50%; background:oklch(0.75 0.15 85);"></span>
+            <span style="width:11px; height:11px; border-radius:50%; background:oklch(0.7 0.15 150);"></span>
+            <span style="margin-inline-start:auto; font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--muted);">quickstart.py</span>
           </div>
-          <div class="preview-body">
-            <div class="preview-line" style="width:84%"></div>
-            <div class="preview-line" style="width:64%"></div>
-            <div class="preview-line" style="width:92%"></div>
-            <div class="preview-line" style="width:54%"></div>
-            <div style="margin-top:auto; display:flex; gap:8px; align-items:center;"><button class="btn btn-primary" onclick="document.getElementById('demo-input').value = 'Quantum theories explore the probabilistic structure of the universe.';">Try example</button><button class="btn btn-ghost" onclick="scrollToSection('demo')">Open demo</button></div>
+          <pre style="margin:0; padding:22px; font-family:'JetBrains Mono',monospace; font-size:13.5px; line-height:1.85; color:oklch(0.9 0.03 195); overflow-x:auto;"><span style="color:oklch(0.75 0.15 300);">from</span> lexidecay <span style="color:oklch(0.75 0.15 300);">import</span> LexiDecayV2
+
+model = LexiDecayV2(add_class_prior=<span style="color:oklch(0.75 0.18 30);">True</span>)
+model.fit(X_train, y_train)
+model.calibrate_threshold(X_train, y_train,
+    positive_label=<span style="color:oklch(0.78 0.14 140);">"spam"</span>)
+
+result = model.classify(
+    <span style="color:oklch(0.78 0.14 140);">"WINNER!! Claim your prize"</span>)</pre>
+        </div>
+      </div>
+    </div>
+
+    <div style="position:relative; z-index:2; margin:60px auto 0; display:flex; justify-content:center; animation:ld-bounce 2.2s ease-in-out infinite; animation-play-state:{{ motionState }};">
+      <svg width="22" height="14" viewBox="0 0 22 14"><line x1="1" y1="1" x2="11" y2="12" stroke="var(--muted)" stroke-width="2" stroke-linecap="round"></line><line x1="21" y1="1" x2="11" y2="12" stroke="var(--muted)" stroke-width="2" stroke-linecap="round"></line></svg>
+    </div>
+  </div>
+
+  <!-- STATS BAR -->
+  <div data-screen-label="Stats" style="position:relative; z-index:2; max-width:1280px; margin:-40px auto 0; padding:0 clamp(20px,6vw,80px) 40px;">
+    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:16px; background:var(--glass); border:1px solid var(--glass-border); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); border-radius:22px; padding:28px;">
+      <div style="text-align:center; padding:10px;">
+        <div style="font-family:'Space Grotesk',sans-serif; font-size:clamp(26px,3vw,34px); font-weight:700; background:linear-gradient(90deg,var(--violet),var(--cyan)); -webkit-background-clip:text; background-clip:text; color:transparent;">97.33%</div>
+        <div style="font-size:13px; color:var(--muted); margin-top:6px;">Macro F1 (5-fold)</div>
+      </div>
+      <div style="text-align:center; padding:10px;">
+        <div style="font-family:'Space Grotesk',sans-serif; font-size:clamp(26px,3vw,34px); font-weight:700; background:linear-gradient(90deg,var(--violet),var(--cyan)); -webkit-background-clip:text; background-clip:text; color:transparent;">95.38%</div>
+        <div style="font-size:13px; color:var(--muted); margin-top:6px;">Spam F1 (KFold k=5)</div>
+      </div>
+      <div style="text-align:center; padding:10px;">
+        <div style="font-family:'Space Grotesk',sans-serif; font-size:clamp(26px,3vw,34px); font-weight:700; background:linear-gradient(90deg,var(--violet),var(--cyan)); -webkit-background-clip:text; background-clip:text; color:transparent;">O(n·m)</div>
+        <div style="font-size:13px; color:var(--muted); margin-top:6px;">Time complexity</div>
+      </div>
+      <div style="text-align:center; padding:10px;">
+        <div style="font-family:'Space Grotesk',sans-serif; font-size:clamp(26px,3vw,34px); font-weight:700; background:linear-gradient(90deg,var(--violet),var(--cyan)); -webkit-background-clip:text; background-clip:text; color:transparent;">0</div>
+        <div style="font-size:13px; color:var(--muted); margin-top:6px;">GPUs / embeddings needed</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HIGHLIGHTS -->
+  <div id="highlights" data-screen-label="Highlights" style="position:relative; max-width:1280px; margin:0 auto; padding:clamp(70px,10vw,130px) clamp(20px,6vw,80px) 40px;">
+    <div style="text-align:center; max-width:680px; margin:0 auto 56px;">
+      <div style="font-family:'Space Grotesk',sans-serif; font-size:13px; font-weight:600; letter-spacing:2px; color:var(--cyan); margin-bottom:14px;">HIGHLIGHTS</div>
+      <h2 style="font-size:clamp(30px,4vw,44px); font-weight:800; margin:0 0 16px; font-family:'Space Grotesk',sans-serif;">Why LexiDecay?</h2>
+      <p style="color:var(--muted); font-size:16px; line-height:1.9; margin:0;">Six reasons it stands apart from black-box classifiers.</p>
+    </div>
+
+    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:22px;">
+
+      <div data-glow="1" data-cursor-hover="1" style="position:relative; overflow:hidden; background:var(--glass); border:1px solid var(--glass-border); border-radius:20px; padding:30px; backdrop-filter:blur(20px); transition:transform .25s ease, border-color .25s ease, box-shadow .25s ease;" style-hover="transform:translateY(-6px); border-color:oklch(1 0 0 / 0.24); box-shadow:0 18px 40px oklch(0 0 0 / 0.35);">
+        <div style="position:absolute; inset:0; background:radial-gradient(320px circle at var(--mx,50%) var(--my,50%), oklch(1 0 0 / 0.10), transparent 45%); pointer-events:none;"></div>
+        <svg width="40" height="40" viewBox="0 0 40 40" style="margin-bottom:18px; position:relative;"><circle cx="12" cy="12" r="6" fill="url(#brandGrad)"></circle><circle cx="29" cy="14" r="4" fill="url(#brandGrad)" opacity="0.6"></circle><circle cx="20" cy="30" r="4.5" fill="url(#brandGrad)" opacity="0.75"></circle><line x1="12" y1="12" x2="29" y2="14" stroke="url(#brandGrad)" stroke-width="1.5" opacity="0.5"></line><line x1="12" y1="12" x2="20" y2="30" stroke="url(#brandGrad)" stroke-width="1.5" opacity="0.5"></line></svg>
+        <h3 style="font-size:19px; font-weight:700; margin:0 0 10px; position:relative;">Fully explainable</h3>
+        <p style="color:var(--muted); font-size:14.5px; line-height:1.85; margin:0; position:relative;">Every prediction traces back to graph nodes and evidence types — no black box.</p>
+      </div>
+
+      <div data-glow="1" data-cursor-hover="1" style="position:relative; overflow:hidden; background:var(--glass); border:1px solid var(--glass-border); border-radius:20px; padding:30px; backdrop-filter:blur(20px); transition:transform .25s ease, border-color .25s ease, box-shadow .25s ease;" style-hover="transform:translateY(-6px); border-color:oklch(1 0 0 / 0.24); box-shadow:0 18px 40px oklch(0 0 0 / 0.35);">
+        <div style="position:absolute; inset:0; background:radial-gradient(320px circle at var(--mx,50%) var(--my,50%), oklch(1 0 0 / 0.10), transparent 45%); pointer-events:none;"></div>
+        <svg width="40" height="40" viewBox="0 0 40 40" style="margin-bottom:18px; position:relative;"><rect x="10" y="10" width="20" height="20" rx="3" fill="none" stroke="url(#brandGrad)" stroke-width="2"></rect><rect x="15" y="15" width="10" height="10" rx="2" fill="url(#brandGrad)" opacity="0.5"></rect></svg>
+        <h3 style="font-size:19px; font-weight:700; margin:0 0 10px; position:relative;">CPU-only, no embeddings</h3>
+        <p style="color:var(--muted); font-size:14.5px; line-height:1.85; margin:0; position:relative;">Runs on any machine; training speed is close to logistic regression on TF-IDF.</p>
+      </div>
+
+      <div data-glow="1" data-cursor-hover="1" style="position:relative; overflow:hidden; background:var(--glass); border:1px solid var(--glass-border); border-radius:20px; padding:30px; backdrop-filter:blur(20px); transition:transform .25s ease, border-color .25s ease, box-shadow .25s ease;" style-hover="transform:translateY(-6px); border-color:oklch(1 0 0 / 0.24); box-shadow:0 18px 40px oklch(0 0 0 / 0.35);">
+        <div style="position:absolute; inset:0; background:radial-gradient(320px circle at var(--mx,50%) var(--my,50%), oklch(1 0 0 / 0.10), transparent 45%); pointer-events:none;"></div>
+        <svg width="40" height="40" viewBox="0 0 40 40" style="margin-bottom:18px; position:relative;"><rect x="7" y="22" width="6" height="11" fill="url(#brandGrad)" opacity="0.5"></rect><rect x="17" y="14" width="6" height="19" fill="url(#brandGrad)" opacity="0.75"></rect><rect x="27" y="7" width="6" height="26" fill="url(#brandGrad)"></rect></svg>
+        <h3 style="font-size:19px; font-weight:700; margin:0 0 10px; position:relative;">Rigorous evaluation</h3>
+        <p style="color:var(--muted); font-size:14.5px; line-height:1.85; margin:0; position:relative;">Reports Spam F1, Ham F1 and Macro F1 with StratifiedKFold k=5, not a single lucky split.</p>
+      </div>
+
+      <div data-glow="1" data-cursor-hover="1" style="position:relative; overflow:hidden; background:var(--glass); border:1px solid var(--glass-border); border-radius:20px; padding:30px; backdrop-filter:blur(20px); transition:transform .25s ease, border-color .25s ease, box-shadow .25s ease;" style-hover="transform:translateY(-6px); border-color:oklch(1 0 0 / 0.24); box-shadow:0 18px 40px oklch(0 0 0 / 0.35);">
+        <div style="position:absolute; inset:0; background:radial-gradient(320px circle at var(--mx,50%) var(--my,50%), oklch(1 0 0 / 0.10), transparent 45%); pointer-events:none;"></div>
+        <svg width="40" height="40" viewBox="0 0 40 40" style="margin-bottom:18px; position:relative;"><circle cx="20" cy="20" r="11" fill="none" stroke="url(#brandGrad)" stroke-width="2.5" stroke-dasharray="14 6"></circle><circle cx="20" cy="9" r="3" fill="url(#brandGrad)"></circle></svg>
+        <h3 style="font-size:19px; font-weight:700; margin:0 0 10px; position:relative;">Online learning</h3>
+        <p style="color:var(--muted); font-size:14.5px; line-height:1.85; margin:0; position:relative;"><span style="font-family:'JetBrains Mono',monospace;">partial_fit()</span> updates the graph incrementally without retraining from scratch.</p>
+      </div>
+
+      <div data-glow="1" data-cursor-hover="1" style="position:relative; overflow:hidden; background:var(--glass); border:1px solid var(--glass-border); border-radius:20px; padding:30px; backdrop-filter:blur(20px); transition:transform .25s ease, border-color .25s ease, box-shadow .25s ease;" style-hover="transform:translateY(-6px); border-color:oklch(1 0 0 / 0.24); box-shadow:0 18px 40px oklch(0 0 0 / 0.35);">
+        <div style="position:absolute; inset:0; background:radial-gradient(320px circle at var(--mx,50%) var(--my,50%), oklch(1 0 0 / 0.10), transparent 45%); pointer-events:none;"></div>
+        <svg width="40" height="40" viewBox="0 0 40 40" style="margin-bottom:18px; position:relative;"><rect x="7" y="7" width="9" height="9" fill="url(#brandGrad)"></rect><rect x="22" y="7" width="9" height="9" fill="url(#brandGrad)" opacity="0.55"></rect><rect x="7" y="22" width="9" height="9" fill="url(#brandGrad)" opacity="0.55"></rect><rect x="22" y="22" width="9" height="9" fill="url(#brandGrad)" opacity="0.3"></rect></svg>
+        <h3 style="font-size:19px; font-weight:700; margin:0 0 10px; position:relative;">Structural features</h3>
+        <p style="color:var(--muted); font-size:14.5px; line-height:1.85; margin:0; position:relative;">Regex pseudo-tokens like <span style="font-family:'JetBrains Mono',monospace;">__MONEY__</span> capture patterns with zero manual feature engineering.</p>
+      </div>
+
+      <div data-glow="1" data-cursor-hover="1" style="position:relative; overflow:hidden; background:var(--glass); border:1px solid var(--glass-border); border-radius:20px; padding:30px; backdrop-filter:blur(20px); transition:transform .25s ease, border-color .25s ease, box-shadow .25s ease;" style-hover="transform:translateY(-6px); border-color:oklch(1 0 0 / 0.24); box-shadow:0 18px 40px oklch(0 0 0 / 0.35);">
+        <div style="position:absolute; inset:0; background:radial-gradient(320px circle at var(--mx,50%) var(--my,50%), oklch(1 0 0 / 0.10), transparent 45%); pointer-events:none;"></div>
+        <svg width="40" height="40" viewBox="0 0 40 40" style="margin-bottom:18px; position:relative;"><path d="M20 6 L32 12 V22 C32 30 26 34 20 36 C14 34 8 30 8 22 V12 Z" fill="none" stroke="url(#brandGrad)" stroke-width="2.2"></path><line x1="14" y1="20" x2="18" y2="25" stroke="url(#brandGrad)" stroke-width="2.4" stroke-linecap="round"></line><line x1="18" y1="25" x2="27" y2="14" stroke="url(#brandGrad)" stroke-width="2.4" stroke-linecap="round"></line></svg>
+        <h3 style="font-size:19px; font-weight:700; margin:0 0 10px; position:relative;">Apache 2.0 licensed</h3>
+        <p style="color:var(--muted); font-size:14.5px; line-height:1.85; margin:0; position:relative;">Commercially permissive — free to use in personal and enterprise projects alike.</p>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- HOW IT WORKS -->
+  <div id="how-it-works" data-screen-label="How it works" style="position:relative; max-width:1280px; margin:0 auto; padding:clamp(70px,10vw,130px) clamp(20px,6vw,80px) 40px;">
+    <div style="text-align:center; max-width:680px; margin:0 auto 56px;">
+      <div style="font-family:'Space Grotesk',sans-serif; font-size:13px; font-weight:600; letter-spacing:2px; color:var(--cyan); margin-bottom:14px;">PIPELINE</div>
+      <h2 style="font-size:clamp(30px,4vw,44px); font-weight:800; margin:0 0 16px; font-family:'Space Grotesk',sans-serif;">How it works, in five steps</h2>
+    </div>
+
+    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:18px;">
+      <div data-glow="1" style="position:relative; overflow:hidden; background:var(--glass); border:1px solid var(--glass-border); border-radius:18px; padding:26px; transition:transform .25s ease, border-color .25s ease;" style-hover="transform:translateY(-5px); border-color:oklch(1 0 0 / 0.22);">
+        <div style="position:absolute; inset:0; background:radial-gradient(280px circle at var(--mx,50%) var(--my,50%), oklch(1 0 0 / 0.09), transparent 45%); pointer-events:none;"></div>
+        <div style="font-family:'Space Grotesk',sans-serif; font-size:34px; font-weight:700; color:var(--violet); opacity:0.6; margin-bottom:10px; position:relative;">01</div>
+        <h3 style="font-size:16.5px; font-weight:700; margin:0 0 10px; position:relative;">Build the relation graph</h3>
+        <p style="color:var(--muted); font-size:13.8px; line-height:1.8; margin:0; position:relative;">Tokens and co-occurrences become weighted nodes and edges; discriminativeness disc(v,c)=log(P(v|c)/P(v)) is computed for every node.</p>
+      </div>
+      <div data-glow="1" style="position:relative; overflow:hidden; background:var(--glass); border:1px solid var(--glass-border); border-radius:18px; padding:26px; transition:transform .25s ease, border-color .25s ease;" style-hover="transform:translateY(-5px); border-color:oklch(1 0 0 / 0.22);">
+        <div style="position:absolute; inset:0; background:radial-gradient(280px circle at var(--mx,50%) var(--my,50%), oklch(1 0 0 / 0.09), transparent 45%); pointer-events:none;"></div>
+        <div style="font-family:'Space Grotesk',sans-serif; font-size:34px; font-weight:700; color:var(--violet); opacity:0.6; margin-bottom:10px; position:relative;">02</div>
+        <h3 style="font-size:16.5px; font-weight:700; margin:0 0 10px; position:relative;">Discover phrases</h3>
+        <p style="color:var(--muted); font-size:13.8px; line-height:1.8; margin:0; position:relative;">Bigrams and trigrams passing G² &gt; 10.83 (p &lt; 0.001) and NPMI &gt; 0.3 become independent phrase nodes.</p>
+      </div>
+      <div data-glow="1" style="position:relative; overflow:hidden; background:var(--glass); border:1px solid var(--glass-border); border-radius:18px; padding:26px; transition:transform .25s ease, border-color .25s ease;" style-hover="transform:translateY(-5px); border-color:oklch(1 0 0 / 0.22);">
+        <div style="position:absolute; inset:0; background:radial-gradient(280px circle at var(--mx,50%) var(--my,50%), oklch(1 0 0 / 0.09), transparent 45%); pointer-events:none;"></div>
+        <div style="font-family:'Space Grotesk',sans-serif; font-size:34px; font-weight:700; color:var(--violet); opacity:0.6; margin-bottom:10px; position:relative;">03</div>
+        <h3 style="font-size:16.5px; font-weight:700; margin:0 0 10px; position:relative;">Extract structural features</h3>
+        <p style="color:var(--muted); font-size:13.8px; line-height:1.8; margin:0; position:relative;">Regex patterns inject pseudo-tokens like __LONG_NUM__ before tokenization even begins.</p>
+      </div>
+      <div data-glow="1" style="position:relative; overflow:hidden; background:var(--glass); border:1px solid var(--glass-border); border-radius:18px; padding:26px; transition:transform .25s ease, border-color .25s ease;" style-hover="transform:translateY(-5px); border-color:oklch(1 0 0 / 0.22);">
+        <div style="position:absolute; inset:0; background:radial-gradient(280px circle at var(--mx,50%) var(--my,50%), oklch(1 0 0 / 0.09), transparent 45%); pointer-events:none;"></div>
+        <div style="font-family:'Space Grotesk',sans-serif; font-size:34px; font-weight:700; color:var(--violet); opacity:0.6; margin-bottom:10px; position:relative;">04</div>
+        <h3 style="font-size:16.5px; font-weight:700; margin:0 0 10px; position:relative;">Aggregate five sources of evidence</h3>
+        <p style="color:var(--muted); font-size:13.8px; line-height:1.8; margin:0; position:relative;">Direct, phrase, context, propagation (bounded PPR) and interaction evidence are weighted and summed.</p>
+      </div>
+      <div data-glow="1" style="position:relative; overflow:hidden; background:var(--glass); border:1px solid var(--glass-border); border-radius:18px; padding:26px; transition:transform .25s ease, border-color .25s ease;" style-hover="transform:translateY(-5px); border-color:oklch(1 0 0 / 0.22);">
+        <div style="position:absolute; inset:0; background:radial-gradient(280px circle at var(--mx,50%) var(--my,50%), oklch(1 0 0 / 0.09), transparent 45%); pointer-events:none;"></div>
+        <div style="font-family:'Space Grotesk',sans-serif; font-size:34px; font-weight:700; color:var(--violet); opacity:0.6; margin-bottom:10px; position:relative;">05</div>
+        <h3 style="font-size:16.5px; font-weight:700; margin:0 0 10px; position:relative;">Apply a calibrated threshold</h3>
+        <p style="color:var(--muted); font-size:13.8px; line-height:1.8; margin:0; position:relative;">The decision boundary that maximizes spam F1 on training data is stored and reused at inference.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- EVIDENCE ENGINE -->
+  <div id="evidence" data-screen-label="Evidence engine" style="position:relative; max-width:1000px; margin:0 auto; padding:clamp(70px,10vw,130px) clamp(20px,6vw,80px) 40px;">
+    <div style="text-align:center; max-width:680px; margin:0 auto 50px;">
+      <div style="font-family:'Space Grotesk',sans-serif; font-size:13px; font-weight:600; letter-spacing:2px; color:var(--cyan); margin-bottom:14px;">EVIDENCE ENGINE</div>
+      <h2 style="font-size:clamp(30px,4vw,44px); font-weight:800; margin:0 0 16px; font-family:'Space Grotesk',sans-serif;">Five sources of evidence</h2>
+      <p style="color:var(--muted); font-size:16px; line-height:1.9; margin:0;">The raw score for each class is a weighted sum: <span style="font-family:'JetBrains Mono',monospace;">score(c) = Σ weight × evidence(c)</span></p>
+    </div>
+
+    <div data-glow="1" style="position:relative; overflow:hidden; background:var(--glass); border:1px solid var(--glass-border); border-radius:22px; padding:clamp(24px,4vw,40px); display:flex; flex-direction:column; gap:22px; backdrop-filter:blur(20px);">
+      <div style="position:absolute; inset:0; background:radial-gradient(400px circle at var(--mx,50%) var(--my,50%), oklch(1 0 0 / 0.08), transparent 45%); pointer-events:none;"></div>
+      <sc-for list="{{ evidenceSources }}" as="ev" hint-placeholder-count="5">
+        <div style="position:relative;">
+          <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px; gap:12px; flex-wrap:wrap;">
+            <span style="font-weight:700; font-size:15.5px;">{{ ev.label }}</span>
+            <span style="font-family:'JetBrains Mono',monospace; font-size:13px; color:var(--muted);">weight = {{ ev.weight }}</span>
+          </div>
+          <div style="height:10px; border-radius:999px; background:oklch(1 0 0 / 0.06); overflow:hidden;">
+            <div style="height:100%; border-radius:999px; background:linear-gradient(90deg,var(--violet),var(--cyan)); width:{{ ev.widthPct }}%;"></div>
+          </div>
+          <p style="color:var(--muted); font-size:13.5px; line-height:1.8; margin:8px 0 0;">{{ ev.desc }}</p>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+
+  <!-- STRUCTURAL TOKENS -->
+  <div data-screen-label="Structural tokens" style="position:relative; max-width:1280px; margin:0 auto; padding:clamp(50px,8vw,100px) clamp(20px,6vw,80px) 40px;">
+    <div style="text-align:center; max-width:700px; margin:0 auto 50px;">
+      <div style="font-family:'Space Grotesk',sans-serif; font-size:13px; font-weight:600; letter-spacing:2px; color:var(--cyan); margin-bottom:14px;">STRUCTURAL FEATURES</div>
+      <h2 style="font-size:clamp(30px,4vw,44px); font-weight:800; margin:0 0 16px; font-family:'Space Grotesk',sans-serif;">Structural pseudo-tokens</h2>
+      <p style="color:var(--muted); font-size:16px; line-height:1.9; margin:0;">Language-independent patterns that inject strong signal before tokenization.</p>
+    </div>
+
+    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:18px;">
+      <sc-for list="{{ structuralTokens }}" as="tok" hint-placeholder-count="5">
+        <div data-glow="1" style="position:relative; overflow:hidden; background:var(--glass); border:1px solid var(--glass-border); border-radius:18px; padding:24px; transition:transform .25s ease, border-color .25s ease;" style-hover="transform:translateY(-5px); border-color:oklch(1 0 0 / 0.22);">
+          <div style="position:absolute; inset:0; background:radial-gradient(260px circle at var(--mx,50%) var(--my,50%), oklch(1 0 0 / 0.09), transparent 45%); pointer-events:none;"></div>
+          <div style="font-family:'JetBrains Mono',monospace; font-size:14.5px; font-weight:600; color:var(--cyan); margin-bottom:6px; position:relative;">{{ tok.token }}</div>
+          <div style="font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--muted); margin-bottom:16px; position:relative;">{{ tok.pattern }}</div>
+          <div style="display:flex; justify-content:space-between; font-size:12.5px; color:var(--muted); margin-bottom:5px; position:relative;"><span>spam</span><span>{{ tok.spam }}%</span></div>
+          <div style="height:8px; border-radius:999px; background:oklch(1 0 0 / 0.06); overflow:hidden; margin-bottom:12px; position:relative;">
+            <div style="height:100%; border-radius:999px; background:linear-gradient(90deg,var(--violet),var(--cyan)); width:{{ tok.spam }}%;"></div>
+          </div>
+          <div style="display:flex; justify-content:space-between; font-size:12.5px; color:var(--muted); margin-bottom:5px; position:relative;"><span>ham</span><span>{{ tok.ham }}%</span></div>
+          <div style="height:8px; border-radius:999px; background:oklch(1 0 0 / 0.06); overflow:hidden; position:relative;">
+            <div style="height:100%; border-radius:999px; background:oklch(0.6 0.02 265); width:{{ tok.hamWidth }}%;"></div>
           </div>
         </div>
+      </sc-for>
+    </div>
+    <p style="text-align:center; color:var(--muted); font-size:13.5px; margin-top:26px;">Plus <span style="font-family:'JetBrains Mono',monospace;">__DATE__</span> for date-like patterns — six structural pseudo-tokens in total.</p>
+  </div>
+
+  <!-- DEMO -->
+  <sc-if value="{{ showDemo }}" hint-placeholder-val="{{ true }}">
+  <div id="demo" data-screen-label="Live demo" style="position:relative; max-width:1100px; margin:0 auto; padding:clamp(70px,10vw,130px) clamp(20px,6vw,80px) 40px;">
+    <div style="text-align:center; max-width:700px; margin:0 auto 50px;">
+      <div style="font-family:'Space Grotesk',sans-serif; font-size:13px; font-weight:600; letter-spacing:2px; color:var(--cyan); margin-bottom:14px;">TRY IT</div>
+      <h2 style="font-size:clamp(30px,4vw,44px); font-weight:800; margin:0 0 16px; font-family:'Space Grotesk',sans-serif;">A concept demo, running in your browser</h2>
+      <p style="color:var(--muted); font-size:16px; line-height:1.9; margin:0;">This lightweight, rule-based demo runs entirely client-side to illustrate LexiDecay's evidence-based reasoning — it is not the real Python model.</p>
+    </div>
+
+    <div data-glow="1" style="position:relative; overflow:hidden; background:var(--glass); border:1px solid var(--glass-border); border-radius:24px; padding:clamp(20px,4vw,36px); backdrop-filter:blur(20px);">
+      <div style="position:absolute; inset:0; background:radial-gradient(420px circle at var(--mx,50%) var(--my,50%), oklch(1 0 0 / 0.07), transparent 45%); pointer-events:none;"></div>
+      <div style="position:relative; display:flex; flex-wrap:wrap; gap:10px; margin-bottom:16px;">
+        <button onClick="{{ loadSample1 }}" data-cursor-hover="1" style="cursor:none; font-family:inherit; font-size:12.5px; padding:8px 14px; border-radius:999px; border:1px solid var(--glass-border); background:var(--glass-strong); color:var(--fg); transition:border-color .2s;" style-hover="border-color:var(--cyan);">Spam sample</button>
+        <button onClick="{{ loadSample2 }}" data-cursor-hover="1" style="cursor:none; font-family:inherit; font-size:12.5px; padding:8px 14px; border-radius:999px; border:1px solid var(--glass-border); background:var(--glass-strong); color:var(--fg); transition:border-color .2s;" style-hover="border-color:var(--cyan);">Ham sample</button>
+        <button onClick="{{ loadSample3 }}" data-cursor-hover="1" style="cursor:none; font-family:inherit; font-size:12.5px; padding:8px 14px; border-radius:999px; border:1px solid var(--glass-border); background:var(--glass-strong); color:var(--fg); transition:border-color .2s;" style-hover="border-color:var(--cyan);">Ambiguous sample</button>
       </div>
-    </section>
 
-    <section id="features" class="reveal">
-      <h3 style="font-family:Poppins,Inter;font-size:20px">Why LexiDecay?</h3>
-      <div class="features">
-        <div class="feature">
-          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10" stroke="url(#g1)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          <h3>Training-free</h3>
-          <p>Works instantly with zero labeled data. Add categories and classify in milliseconds.</p>
-        </div>
-        <div class="feature">
-          <svg viewBox="0 0 24 24" fill="none"><path d="M3 12h18" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          <h3>Adaptive Decay</h3>
-          <p>Auto frequency decay reduces the influence of overly-common tokens without manual stoplists.</p>
-        </div>
-        <div class="feature">
-          <svg viewBox="0 0 24 24" fill="none"><path d="M12 2v20" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          <h3>Explainable</h3>
-          <p>See matched tokens, scores, and probability breakdowns — full transparency.</p>
+      <textarea value="{{ demoText }}" onChange="{{ onDemoInput }}" rows="3" placeholder="A text message to classify..." style="position:relative; width:100%; box-sizing:border-box; resize:vertical; font-family:'JetBrains Mono',monospace; font-size:14px; line-height:1.7; padding:16px; border-radius:14px; background:oklch(0 0 0 / 0.25); border:1px solid var(--glass-border); color:var(--fg); outline:none; cursor:none;"></textarea>
+
+      <div style="position:relative; display:flex; flex-wrap:wrap; gap:16px; align-items:center; margin-top:22px;">
+        <div style="display:flex; align-items:center; gap:12px; padding:12px 20px; border-radius:14px; background:{{ resultBg }}; border:1px solid var(--glass-border);">
+          <span style="font-size:13px; color:var(--muted);">Prediction:</span>
+          <span style="font-weight:800; font-size:16px; color:{{ resultColor }};">{{ demoLabel }}</span>
+          <span style="font-family:'JetBrains Mono',monospace; font-size:13px; color:var(--muted);">{{ demoProbFormatted }}%</span>
         </div>
       </div>
-    </section>
 
-
-    <section id="features" class="reveal">
-      <h3 style="font-family:Poppins,Inter;font-size:20px">Try some Demo with <a href="https://github.com/mr-r0ot/LexiDecay/tree/main/lexidecay_js">lexidecay.js</a>:</h3>
-      <div class="features">
-        <div class="feature">
-          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10" stroke="url(#g1)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          <a href="https://mr-r0ot.github.io/LexiDecay/lexidecay_js/Examples/Language%20level%20detection%20(English)/app.html">
-          <h3>level detection</h3>
-          <p>Language level detection (English)</p>
-          </a>
-        </div>
-        
-        <div class="feature">
-          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10" stroke="url(#g1)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          <a href="https://mr-r0ot.github.io/LexiDecay/lexidecay_js/Examples/Recognizing%20emotions/app.html">
-          <h3>Recognizing emotions</h3>
-          <p>Recognizing emotions</p>
-          </a>
-        </div>
-
-      </div>
-    </section>
-
-
-    <section id="demo" class="reveal">
-      <h3 style="font-family:Poppins,Inter;font-size:20px">Interactive Demo</h3>
-      <div class="demo">
-        <div class="panel">
-          <div class="controls">
-            <div class="field" style="flex:1">
-              <label for="demo-input">Enter text to classify</label>
-              <textarea id="demo-input" placeholder="Paste a sentence, paragraph or short document..."></textarea>
+      <div style="position:relative; margin-top:26px; display:flex; flex-direction:column; gap:12px;">
+        <sc-for list="{{ demoEvidence }}" as="ev2" hint-placeholder-count="3">
+          <div>
+            <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:6px; gap:10px; flex-wrap:wrap;">
+              <span><span style="font-family:'JetBrains Mono',monospace; color:var(--cyan);">[{{ ev2.type }}]</span> {{ ev2.label }}</span>
+              <span style="color:var(--muted); font-family:'JetBrains Mono',monospace;">+{{ ev2.contribution }}</span>
             </div>
-            <div style="width:180px">
-              <label class="small">Decay (0 — 1)</label>
-              <input id="decay" type="range" min="0" max="1" step="0.01" value="0.5" style="width:100%">
-              <div style="display:flex; gap:8px; margin-top:8px"><label><input type="checkbox" id="use_idf"> use_idf</label></div>
+            <div style="height:7px; border-radius:999px; background:oklch(1 0 0 / 0.06); overflow:hidden;">
+              <div style="height:100%; border-radius:999px; background:linear-gradient(90deg,var(--violet),var(--cyan)); width:{{ ev2.widthPct }}%;"></div>
             </div>
           </div>
-
-          <div style="display:flex; gap:8px; margin-bottom:8px">
-            <button class="btn btn-primary" id="classifyBtn">Classify</button>
-            <button class="btn btn-ghost" id="resetBtn">Reset</button>
-            <button class="btn btn-ghost" id="addSampleBtn">Add sample category</button>
-          </div>
-
-          <div id="results" aria-live="polite" style="margin-top:12px"></div>
-        </div>
-
-        <aside class="panel" aria-label="Model controls">
-          <div style="display:flex; justify-content:space-between; align-items:center"><strong>Model</strong><button class="btn btn-ghost" id="exportBtn">Export</button></div>
-          <div style="margin-top:12px">
-            <label class="small">Categories (editable)</label>
-            <div id="cats" style="display:flex; flex-direction:column; gap:8px; margin-top:8px"></div>
-          </div>
-
-          <div style="margin-top:12px"><label class="small">Top probabilities</label>
-            <div id="probs" class="prob-list"></div>
-          </div>
-        </aside>
+        </sc-for>
       </div>
-    </section>
+    </div>
+  </div>
+  </sc-if>
 
-    <section id="code" class="reveal">
-      <h3 style="font-family:Poppins,Inter;font-size:20px">Python Quickstart</h3>
-      <pre><code># Install
-pip install LexiDecay
+  <!-- BENCHMARKS -->
+  <div id="benchmarks" data-screen-label="Benchmarks" style="position:relative; max-width:1280px; margin:0 auto; padding:clamp(70px,10vw,130px) clamp(20px,6vw,80px) 40px;">
+    <div style="text-align:center; max-width:700px; margin:0 auto 50px;">
+      <div style="font-family:'Space Grotesk',sans-serif; font-size:13px; font-weight:600; letter-spacing:2px; color:var(--cyan); margin-bottom:14px;">BENCHMARKS</div>
+      <h2 style="font-size:clamp(30px,4vw,44px); font-weight:800; margin:0 0 16px; font-family:'Space Grotesk',sans-serif;">Results on the SMS Spam Collection</h2>
+      <p style="color:var(--muted); font-size:16px; line-height:1.9; margin:0;">5,572 documents (4,825 ham / 747 spam) — StratifiedKFold(n_splits=5, seed=42).</p>
+    </div>
 
-# Basic usage
-from LexiDecay import LexiDecayModel
-m = LexiDecayModel()
-m.add_category("science", open("science.txt").read())
-m.add_category("philosophy", open("philosophy.txt").read())
-text = "Quantum theories explore the probabilistic structure of the universe."
-result = m.classify(text)
-print(result["top"])  # ('science', score, probability)
-</code></pre>
-    </section>
-
-    <section id="examples" class="reveal">
-      <h3 style="font-family:Poppins,Inter;font-size:20px">Examples & Use Cases</h3>
-      <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin-top:12px">
-        <div class="panel"><strong>Topic classification</strong><div class="muted" style="margin-top:6px">Classify articles into domains like science, art, sports — instantly.</div></div>
-        <div class="panel"><strong>Intent detection</strong><div class="muted" style="margin-top:6px">Detect user intent in chatbots and routing systems with low latency.</div></div>
-      </div>
-    </section>
-
-    <footer>
-      <div class="foot-grid">
-        <div>
-          <strong>LexiDecay</strong>
-          <div class="muted">Apache 2.0 © 2025 Mohammad Taha Gorji</div>
+    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:16px; margin-bottom:36px;">
+      <sc-for list="{{ kfoldStats }}" as="ks" hint-placeholder-count="4">
+        <div data-glow="1" style="position:relative; overflow:hidden; background:var(--glass); border:1px solid var(--glass-border); border-radius:16px; padding:22px; text-align:center; transition:transform .25s ease;" style-hover="transform:translateY(-4px);">
+          <div style="position:absolute; inset:0; background:radial-gradient(200px circle at var(--mx,50%) var(--my,50%), oklch(1 0 0 / 0.10), transparent 45%); pointer-events:none;"></div>
+          <div style="font-family:'Space Grotesk',sans-serif; font-size:26px; font-weight:700; color:var(--cyan); position:relative;">{{ ks.value }}</div>
+          <div style="font-size:13px; color:var(--muted); margin-top:6px; position:relative;">{{ ks.label }}</div>
         </div>
-        <div class="socials">
-          <a class="muted" href="https://github.com/mr-r0ot/LexiDecay" target="_blank" rel="noreferrer">GitHub</a>
-          <a class="muted" href="https://pypi.org/project/LexiDecay/" target="_blank" rel="noreferrer">PyPI</a>
-          <a class="muted" href="#docs">Docs</a>
+      </sc-for>
+    </div>
+
+    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(420px,1fr)); gap:24px;">
+      <div data-glow="1" style="position:relative; overflow:hidden; background:var(--glass); border:1px solid var(--glass-border); border-radius:22px; padding:clamp(22px,4vw,32px);">
+        <div style="position:absolute; inset:0; background:radial-gradient(360px circle at var(--mx,50%) var(--my,50%), oklch(1 0 0 / 0.08), transparent 45%); pointer-events:none;"></div>
+        <h3 style="font-size:17px; font-weight:700; margin:0 0 22px; position:relative;">Spam F1 vs. other methods</h3>
+        <div style="position:relative; display:flex; flex-direction:column; gap:14px;">
+          <sc-for list="{{ comparisonMethods }}" as="cm" hint-placeholder-count="7">
+            <div>
+              <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:6px; gap:10px;">
+                <span style="font-weight:{{ cm.weight }}; color:{{ cm.color }};">{{ cm.name }}</span>
+                <span style="font-family:'JetBrains Mono',monospace; color:var(--muted);">{{ cm.f1 }}%</span>
+              </div>
+              <div style="height:9px; border-radius:999px; background:oklch(1 0 0 / 0.06); overflow:hidden;">
+                <div style="height:100%; border-radius:999px; background:{{ cm.barColor }}; width:{{ cm.f1 }}%;"></div>
+              </div>
+            </div>
+          </sc-for>
         </div>
       </div>
-    </footer>
+
+      <div data-glow="1" style="position:relative; overflow:hidden; background:var(--glass); border:1px solid var(--glass-border); border-radius:22px; padding:clamp(22px,4vw,32px);">
+        <div style="position:absolute; inset:0; background:radial-gradient(360px circle at var(--mx,50%) var(--my,50%), oklch(1 0 0 / 0.08), transparent 45%); pointer-events:none;"></div>
+        <h3 style="font-size:17px; font-weight:700; margin:0 0 22px; position:relative;">Confusion matrix (80/20 split)</h3>
+        <div style="position:relative; display:grid; grid-template-columns:auto 1fr 1fr; gap:2px; font-size:13px;">
+          <div></div>
+          <div style="text-align:center; color:var(--muted); padding:8px; font-size:12px;">Predicted Ham</div>
+          <div style="text-align:center; color:var(--muted); padding:8px; font-size:12px;">Predicted Spam</div>
+          <div style="display:flex; align-items:center; color:var(--muted); padding:8px; font-size:12px;">True Ham</div>
+          <div style="text-align:center; padding:20px 8px; border-radius:10px; background:oklch(0.65 0.14 150 / 0.18); font-weight:700; font-size:18px;">962</div>
+          <div style="text-align:center; padding:20px 8px; border-radius:10px; background:oklch(0.65 0.18 25 / 0.14); font-weight:700; font-size:18px;">3</div>
+          <div style="display:flex; align-items:center; color:var(--muted); padding:8px; font-size:12px;">True Spam</div>
+          <div style="text-align:center; padding:20px 8px; border-radius:10px; background:oklch(0.65 0.18 25 / 0.14); font-weight:700; font-size:18px;">5</div>
+          <div style="text-align:center; padding:20px 8px; border-radius:10px; background:oklch(0.65 0.14 150 / 0.18); font-weight:700; font-size:18px;">145</div>
+        </div>
+        <p style="position:relative; color:var(--muted); font-size:13px; line-height:1.8; margin:20px 0 0;">Accuracy 99.28% · Spam precision 97.97% · Spam recall 96.67% — only 3 ham messages flagged as spam and 5 spam messages missed.</p>
+      </div>
+    </div>
+    <p style="text-align:center; color:var(--muted); font-size:12.5px; margin-top:28px; line-height:1.8;">Dataset: Almeida, Gómez Hidalgo &amp; Yamakami (2011), UCI SMS Spam Collection. Comparison figures compiled from secondary sources and peer-reviewed papers.</p>
+  </div>
+
+  <!-- INSTALL / API -->
+  <div id="install" data-screen-label="Install and API" style="position:relative; max-width:1280px; margin:0 auto; padding:clamp(70px,10vw,130px) clamp(20px,6vw,80px) 40px;">
+    <div style="text-align:center; max-width:680px; margin:0 auto 50px;">
+      <div style="font-family:'Space Grotesk',sans-serif; font-size:13px; font-weight:600; letter-spacing:2px; color:var(--cyan); margin-bottom:14px;">GET STARTED</div>
+      <h2 style="font-size:clamp(30px,4vw,44px); font-weight:800; margin:0 0 16px; font-family:'Space Grotesk',sans-serif;">Install and go</h2>
+    </div>
+
+    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(380px,1fr)); gap:22px; margin-bottom:60px;">
+      <div data-glow="1" style="position:relative; overflow:hidden; background:var(--glass); border:1px solid var(--glass-border); border-radius:20px;">
+        <div style="position:absolute; inset:0; background:radial-gradient(300px circle at var(--mx,50%) var(--my,50%), oklch(1 0 0 / 0.08), transparent 45%); pointer-events:none;"></div>
+        <div style="position:relative; display:flex; align-items:center; justify-content:space-between; padding:14px 20px; border-bottom:1px solid var(--glass-border);">
+          <span style="font-family:'JetBrains Mono',monospace; font-size:12.5px; color:var(--muted);">Install</span>
+          <button onClick="{{ copyInstall }}" data-cursor-hover="1" style="cursor:none; font-family:inherit; font-size:12px; padding:6px 12px; border-radius:8px; border:1px solid var(--glass-border); background:transparent; color:var(--fg); transition:border-color .2s;" style-hover="border-color:var(--cyan);">{{ installCopyLabel }}</button>
+        </div>
+        <pre style="position:relative; margin:0; padding:22px; font-family:'JetBrains Mono',monospace; font-size:14px; color:oklch(0.9 0.03 195); overflow-x:auto;">pip install LexiDecay</pre>
+      </div>
+
+      <div data-glow="1" style="position:relative; overflow:hidden; background:var(--glass); border:1px solid var(--glass-border); border-radius:20px;">
+        <div style="position:absolute; inset:0; background:radial-gradient(300px circle at var(--mx,50%) var(--my,50%), oklch(1 0 0 / 0.08), transparent 45%); pointer-events:none;"></div>
+        <div style="position:relative; display:flex; align-items:center; justify-content:space-between; padding:14px 20px; border-bottom:1px solid var(--glass-border);">
+          <span style="font-family:'JetBrains Mono',monospace; font-size:12.5px; color:var(--muted);">Calibrated training</span>
+          <button onClick="{{ copyQuickstart }}" data-cursor-hover="1" style="cursor:none; font-family:inherit; font-size:12px; padding:6px 12px; border-radius:8px; border:1px solid var(--glass-border); background:transparent; color:var(--fg); transition:border-color .2s;" style-hover="border-color:var(--cyan);">{{ quickstartCopyLabel }}</button>
+        </div>
+        <pre style="position:relative; margin:0; padding:22px; font-family:'JetBrains Mono',monospace; font-size:13px; line-height:1.75; color:oklch(0.9 0.03 195); overflow-x:auto;">model.calibrate_threshold(
+    X_train, y_train,
+    positive_label="spam")
+labels = model.predict(X_test)
+probas = model.predict_proba(X_test)</pre>
+      </div>
+    </div>
+
+    <div id="api" style="text-align:center; max-width:680px; margin:0 auto 40px;">
+      <div style="font-family:'Space Grotesk',sans-serif; font-size:13px; font-weight:600; letter-spacing:2px; color:var(--cyan); margin-bottom:14px;">API SURFACE</div>
+      <h2 style="font-size:clamp(28px,3.5vw,38px); font-weight:800; margin:0; font-family:'Space Grotesk',sans-serif;">Core model methods</h2>
+    </div>
+
+    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:16px; margin-bottom:60px;">
+      <sc-for list="{{ apiMethods }}" as="am" hint-placeholder-count="8">
+        <div data-glow="1" style="position:relative; overflow:hidden; background:var(--glass); border:1px solid var(--glass-border); border-radius:16px; padding:22px; transition:transform .25s ease, border-color .25s ease;" style-hover="transform:translateY(-4px); border-color:oklch(1 0 0 / 0.22);">
+          <div style="position:absolute; inset:0; background:radial-gradient(240px circle at var(--mx,50%) var(--my,50%), oklch(1 0 0 / 0.09), transparent 45%); pointer-events:none;"></div>
+          <div style="font-family:'JetBrains Mono',monospace; font-size:13.5px; font-weight:600; color:var(--cyan); margin-bottom:10px; overflow-wrap:anywhere; position:relative;">{{ am.sig }}</div>
+          <p style="color:var(--muted); font-size:13.5px; line-height:1.8; margin:0; position:relative;">{{ am.desc }}</p>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="text-align:center; max-width:680px; margin:0 auto 40px;">
+      <div style="font-family:'Space Grotesk',sans-serif; font-size:13px; font-weight:600; letter-spacing:2px; color:var(--cyan); margin-bottom:14px;">CONFIGURATION</div>
+      <h2 style="font-size:clamp(28px,3.5vw,38px); font-weight:800; margin:0; font-family:'Space Grotesk',sans-serif;">Key constructor parameters</h2>
+    </div>
+    <div data-glow="1" style="position:relative; overflow:hidden; background:var(--glass); border:1px solid var(--glass-border); border-radius:22px; padding:clamp(10px,2vw,14px);">
+      <div style="position:absolute; inset:0; background:radial-gradient(360px circle at var(--mx,50%) var(--my,50%), oklch(1 0 0 / 0.07), transparent 45%); pointer-events:none;"></div>
+      <sc-for list="{{ constructorParams }}" as="cp" hint-placeholder-count="7">
+        <div style="position:relative; display:flex; flex-wrap:wrap; gap:14px; align-items:center; padding:16px 14px; border-bottom:1px solid var(--glass-border);">
+          <div style="font-family:'JetBrains Mono',monospace; font-size:13.5px; color:var(--cyan); min-width:220px;">{{ cp.name }}</div>
+          <div style="font-family:'JetBrains Mono',monospace; font-size:12.5px; color:var(--muted); min-width:70px;">= {{ cp.def }}</div>
+          <div style="flex:1 1 260px; font-size:13.5px; color:var(--muted); line-height:1.7;">{{ cp.desc }}</div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <div data-screen-label="Footer" style="position:relative; border-top:1px solid var(--glass-border); margin-top:60px; padding:60px clamp(20px,6vw,80px) 34px;">
+    <div style="max-width:1280px; margin:0 auto; display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:40px;">
+      <div>
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px;">
+          <svg width="26" height="26" viewBox="0 0 64 64"><line x1="18" y1="14" x2="18" y2="34" stroke="url(#brandGrad)" stroke-width="4" stroke-linecap="round"></line><line x1="18" y1="34" x2="18" y2="50" stroke="url(#brandGrad)" stroke-width="4" stroke-linecap="round" opacity="0.75"></line><line x1="18" y1="50" x2="40" y2="50" stroke="url(#brandGrad)" stroke-width="4" stroke-linecap="round" opacity="0.55"></line><circle cx="18" cy="14" r="7" fill="url(#brandGrad)"></circle><circle cx="18" cy="34" r="5.5" fill="url(#brandGrad)" opacity="0.8"></circle><circle cx="18" cy="50" r="4.5" fill="url(#brandGrad)" opacity="0.6"></circle><circle cx="40" cy="50" r="3.4" fill="url(#brandGrad)" opacity="0.4"></circle></svg>
+          <span style="font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:17px;">LexiDecay</span>
+        </div>
+        <p style="color:var(--muted); font-size:13.5px; line-height:1.9; max-width:280px;">Graph-based, fast, fully explainable text classification — no neural networks, no GPU.</p>
+      </div>
+      <div>
+        <div style="font-weight:700; font-size:14px; margin-bottom:14px;">Project</div>
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          <a href="https://github.com/mr-r0ot/LexiDecay" target="_blank" rel="noopener" data-cursor-hover="1" style="color:var(--muted); text-decoration:none; font-size:13.5px; transition:color .2s;" style-hover="color:var(--cyan);">GitHub repository</a>
+          <a href="https://pypi.org/project/LexiDecay/" target="_blank" rel="noopener" data-cursor-hover="1" style="color:var(--muted); text-decoration:none; font-size:13.5px; transition:color .2s;" style-hover="color:var(--cyan);">PyPI package</a>
+          <a href="https://github.com/mr-r0ot/LexiDecay/issues" target="_blank" rel="noopener" data-cursor-hover="1" style="color:var(--muted); text-decoration:none; font-size:13.5px; transition:color .2s;" style-hover="color:var(--cyan);">Issues</a>
+          <a href="https://mr-r0ot.github.io/LexiDecay/" target="_blank" rel="noopener" data-cursor-hover="1" style="color:var(--muted); text-decoration:none; font-size:13.5px; transition:color .2s;" style-hover="color:var(--cyan);">Project page</a>
+        </div>
+      </div>
+      <div>
+        <div style="font-weight:700; font-size:14px; margin-bottom:14px;">Docs</div>
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          <a href="https://github.com/mr-r0ot/LexiDecay/blob/main/documents.md" target="_blank" rel="noopener" data-cursor-hover="1" style="color:var(--muted); text-decoration:none; font-size:13.5px; transition:color .2s;" style-hover="color:var(--cyan);">Usage guide</a>
+          <a href="https://github.com/mr-r0ot/LexiDecay/blob/main/Technical_description.md" target="_blank" rel="noopener" data-cursor-hover="1" style="color:var(--muted); text-decoration:none; font-size:13.5px; transition:color .2s;" style-hover="color:var(--cyan);">Technical description</a>
+          <a href="https://github.com/mr-r0ot/LexiDecay/tree/main/Examples" target="_blank" rel="noopener" data-cursor-hover="1" style="color:var(--muted); text-decoration:none; font-size:13.5px; transition:color .2s;" style-hover="color:var(--cyan);">Examples</a>
+          <a href="https://www.apache.org/licenses/LICENSE-2.0" target="_blank" rel="noopener" data-cursor-hover="1" style="color:var(--muted); text-decoration:none; font-size:13.5px; transition:color .2s;" style-hover="color:var(--cyan);">Apache 2.0 license</a>
+        </div>
+      </div>
+    </div>
+    <div style="max-width:1280px; margin:44px auto 0; padding-top:24px; border-top:1px solid var(--glass-border); display:flex; flex-wrap:wrap; gap:12px; justify-content:space-between; color:var(--muted); font-size:12.5px;">
+      <span>© 2024–2026 LexiDecay Contributors — Apache License 2.0</span>
+      <span>Built by mr-r0ot</span>
+    </div>
+  </div>
 
   </div>
 
-  <script>
-    // Utility: scroll to section
-    function scrollToSection(id){document.getElementById(id).scrollIntoView({behavior:'smooth', block:'start'})}
+</div>
 
-    // Reveal on scroll
-    const observer = new IntersectionObserver((items)=>{
-      items.forEach(i=>{ if(i.isIntersecting){ i.target.classList.add('show'); observer.unobserve(i.target) } })
-    }, {threshold:0.12})
-    document.querySelectorAll('.reveal').forEach(el=>observer.observe(el));
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;$preview&quot;: {&quot;width&quot;: 1440},
+  &quot;accentTheme&quot;: {
+    &quot;editor&quot;: &quot;color&quot;,
+    &quot;default&quot;: [&quot;oklch(0.72 0.19 300)&quot;, &quot;oklch(0.78 0.16 195)&quot;],
+    &quot;options&quot;: [
+      [&quot;oklch(0.72 0.19 300)&quot;, &quot;oklch(0.78 0.16 195)&quot;],
+      [&quot;oklch(0.66 0.21 275)&quot;, &quot;oklch(0.70 0.22 325)&quot;],
+      [&quot;oklch(0.70 0.19 260)&quot;, &quot;oklch(0.74 0.20 305)&quot;]
+    ],
+    &quot;tsType&quot;: &quot;string[]&quot;,
+    &quot;section&quot;: &quot;Appearance&quot;
+  },
+  &quot;showDemo&quot;: {
+    &quot;editor&quot;: &quot;boolean&quot;,
+    &quot;default&quot;: true,
+    &quot;tsType&quot;: &quot;boolean&quot;,
+    &quot;section&quot;: &quot;Content&quot;
+  },
+  &quot;reduceMotion&quot;: {
+    &quot;editor&quot;: &quot;boolean&quot;,
+    &quot;default&quot;: false,
+    &quot;tsType&quot;: &quot;boolean&quot;,
+    &quot;section&quot;: &quot;Content&quot;
+  }
+}">
+class Component extends DCLogic {
+  state = {
+    demoText: "WINNER!! Call 09061701461 to claim your prize NOW",
+    copiedInstall: false,
+    copiedQuickstart: false,
+    cursorEnabled: false,
+  };
 
-    // Background canvas: animated soft white water-like blobs
-    const canvas = document.getElementById('bgCanvas');
-    const ctx = canvas.getContext('2d');
-    let W, H;
-    function resize(){W=canvas.width = innerWidth; H=canvas.height = innerHeight}
-    window.addEventListener('resize', resize); resize();
+  cursorDotRef = React.createRef();
+  cursorRingRef = React.createRef();
 
-    // blobs config
-    const blobs = [];
-    const colors = ['rgba(255,255,255,0.06)','rgba(255,255,255,0.04)','rgba(255,255,255,0.025)'];
-    for(let i=0;i<8;i++){
-      blobs.push({x:Math.random()*W, y:Math.random()*H, r:80+Math.random()*260, vx:(Math.random()-0.5)*0.4, vy:(Math.random()-0.5)*0.4, col:colors[i%colors.length]});
+  componentDidMount() {
+    this.isFine = typeof window !== "undefined" && window.matchMedia && window.matchMedia("(pointer: fine)").matches;
+    if (this.isFine) {
+      document.body.style.cursor = "none";
+      this.setState({ cursorEnabled: true });
+    }
+    this.handleMove = (e) => {
+      if (this.cursorDotRef.current) {
+        this.cursorDotRef.current.style.transform = "translate3d(" + (e.clientX - 4) + "px, " + (e.clientY - 4) + "px, 0)";
+      }
+      if (this.cursorRingRef.current) {
+        this.cursorRingRef.current.style.transform = "translate3d(" + (e.clientX - 18) + "px, " + (e.clientY - 18) + "px, 0)";
+      }
+      const glowEl = e.target && e.target.closest ? e.target.closest("[data-glow]") : null;
+      if (glowEl) {
+        const rect = glowEl.getBoundingClientRect();
+        const mx = ((e.clientX - rect.left) / rect.width) * 100;
+        const my = ((e.clientY - rect.top) / rect.height) * 100;
+        glowEl.style.setProperty("--mx", mx + "%");
+        glowEl.style.setProperty("--my", my + "%");
+      }
+    };
+    this.handleOver = (e) => {
+      const hoverEl = e.target && e.target.closest ? e.target.closest("a, button, textarea, [data-cursor-hover]") : null;
+      if (this.cursorRingRef.current) {
+        this.cursorRingRef.current.style.width = hoverEl ? "60px" : "36px";
+        this.cursorRingRef.current.style.height = hoverEl ? "60px" : "36px";
+        this.cursorRingRef.current.style.borderColor = hoverEl ? "var(--cyan)" : "var(--violet)";
+        this.cursorRingRef.current.style.marginLeft = hoverEl ? "-12px" : "0px";
+        this.cursorRingRef.current.style.marginTop = hoverEl ? "-12px" : "0px";
+      }
+    };
+    window.addEventListener("mousemove", this.handleMove);
+    window.addEventListener("mouseover", this.handleOver);
+  }
+
+  componentWillUnmount() {
+    window.removeEventListener("mousemove", this.handleMove);
+    window.removeEventListener("mouseover", this.handleOver);
+    if (this.isFine) {
+      document.body.style.cursor = "";
+    }
+  }
+
+  analyze(text) {
+    const t = text || "";
+    const evidence = [];
+    let score = 0;
+
+    const longNum = /\b\d{8,15}\b/.test(t);
+    const shortCode = /\b\d{4,6}\b/.test(t);
+    const money = /[£$€]\d+|\d+p\b/.test(t);
+    const url = /https?:\/\/|www\./i.test(t);
+    const capsWords = (t.match(/\b[A-Z]{3,}\b/g) || []).length;
+
+    if (longNum) { score += 3.4; evidence.push({ type: "structural", label: "__LONG_NUM__ detected", contribution: "3.4", widthPct: 0 }); }
+    if (shortCode) { score += 1.8; evidence.push({ type: "structural", label: "__SHORT_CODE__ detected", contribution: "1.8", widthPct: 0 }); }
+    if (money) { score += 2.6; evidence.push({ type: "structural", label: "__MONEY__ detected", contribution: "2.6", widthPct: 0 }); }
+    if (url) { score += 2.0; evidence.push({ type: "structural", label: "__URL__ detected", contribution: "2.0", widthPct: 0 }); }
+    if (capsWords > 0) { const c = Math.min(capsWords, 4) * 0.9; score += c; evidence.push({ type: "structural", label: capsWords + " all-caps word(s) (__CAPS_WORD__)", contribution: c.toFixed(1), widthPct: 0 }); }
+
+    const keywords = ["win", "winner", "free", "prize", "claim", "urgent", "congratulations", "click", "guarantee", "cash", "act now", "limited", "offer", "call now", "credit", "loan"];
+    const lower = t.toLowerCase();
+    let kw = 0;
+    keywords.forEach((k) => { if (lower.indexOf(k) !== -1) kw++; });
+    if (kw > 0) { const c = kw * 1.3; score += c; evidence.push({ type: "phrase", label: kw + " promotional / spam keyword(s)", contribution: c.toFixed(1), widthPct: 0 }); }
+
+    if (evidence.length === 0) {
+      evidence.push({ type: "direct", label: "No strong structural pattern or keyword found", contribution: "0.0", widthPct: 100 });
     }
 
-    function draw(){
-      ctx.clearRect(0,0,W,H);
-      // soft vignette
-      const g = ctx.createLinearGradient(0,0,0,H);
-      g.addColorStop(0,'rgba(6,8,12,0.0)'); g.addColorStop(1,'rgba(2,4,8,0.4)');
-      ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+    const maxC = Math.max(...evidence.map((e) => parseFloat(e.contribution)), 0.1);
+    evidence.forEach((e) => { e.widthPct = Math.max(6, Math.round((parseFloat(e.contribution) / maxC) * 100)); });
+    evidence.sort((a, b) => parseFloat(b.contribution) - parseFloat(a.contribution));
 
-      // draw blobs to offscreen then blur using globalCompositeOperation trick
-      ctx.save();
-      ctx.globalCompositeOperation = 'lighter';
-      blobs.forEach(b=>{
-        const grad = ctx.createRadialGradient(b.x, b.y, b.r*0.08, b.x, b.y, b.r);
-        grad.addColorStop(0, b.col);
-        grad.addColorStop(1, 'rgba(255,255,255,0)');
-        ctx.fillStyle = grad;
-        ctx.beginPath(); ctx.ellipse(b.x, b.y, b.r, b.r*0.7, 0, 0, Math.PI*2); ctx.fill();
-      });
-      ctx.restore();
+    const prob = score / (score + 4.2);
+    const isSpam = prob >= 0.5;
+    return {
+      isSpam,
+      label: isSpam ? "SPAM" : "HAM",
+      prob: isSpam ? prob : 1 - prob,
+      evidence: evidence.slice(0, 5),
+    };
+  }
 
-      // subtle overlay lines
-      ctx.save(); ctx.globalCompositeOperation='overlay'; ctx.fillStyle='rgba(255,255,255,0.01)'; ctx.fillRect(0,0,W,H); ctx.restore();
+  setDemoText = (e) => { this.setState({ demoText: e.target.value }); };
+  loadSample = (text) => { this.setState({ demoText: text }); };
 
-      // move blobs
-      blobs.forEach(b=>{ b.x+=b.vx; b.y+=b.vy; if(b.x<-300) b.x=W+200; if(b.x>W+300) b.x=-200; if(b.y<-300) b.y=H+200; if(b.y>H+300) b.y=-200; });
+  copyText(text, key) {
+    if (navigator.clipboard) { navigator.clipboard.writeText(text).catch(() => {}); }
+    this.setState({ [key]: true });
+    setTimeout(() => { this.setState({ [key]: false }); }, 1600);
+  }
 
-      requestAnimationFrame(draw);
-    }
-    requestAnimationFrame(draw);
+  renderVals() {
+    const palette = this.props.accentTheme || ["oklch(0.72 0.19 300)", "oklch(0.78 0.16 195)"];
+    const accentA = palette[0];
+    const accentB = palette[1];
+    const showDemo = this.props.showDemo ?? true;
+    const reduceMotion = this.props.reduceMotion ?? false;
+    const motionState = reduceMotion ? "paused" : "running";
 
-    // --- Simple client-side LexiDecay implementation (educational demo) ---
-    class LexiDecayDemo{
-      constructor(){ this.categories = {} }
-      _tokenize(s){ return s.toLowerCase().match(/\b[\w']+\b/g) || [] }
-      addCategory(label, content){
-        const toks = this._tokenize(Array.isArray(content)?content.join(' '):content);
-        const freqs = {};
-        toks.forEach(t=> freqs[t] = (freqs[t]||0)+1);
-        this.categories[label] = {freqs, total:toks.length}
-        return this.categories[label]
-      }
-      classify(text, opts={decay:0.5, use_idf:false, auto_common_reduce:true}){
-        const toks = this._tokenize(text);
-        if(toks.length===0) return {scores:{},probs:{},top:null}
-        const unique = [...new Set(toks)];
-        const scores = {};
-        // build idf if requested
-        const N = Object.keys(this.categories).length || 1;
-        const df = {};
-        if(opts.use_idf){
-          for(const cat in this.categories){
-            for(const t in this.categories[cat].freqs) df[t] = (df[t]||0)+1
-          }
-        }
-        for(const cat in this.categories){
-          let s = 0;
-          const freqs = this.categories[cat].freqs;
-          for(const t of unique){
-            const f = freqs[t]||0;
-            // adaptive decay: heavier words (higher freq) contribute less
-            const weight = f>0 ? (1 / (1 + Math.pow(f, opts.decay))) : 0;
-            const idf = opts.use_idf && df[t] ? Math.log(1 + N / (df[t]||1)) : 1;
-            s += weight * idf;
-          }
-          scores[cat] = s;
-        }
-        // normalize to probabilities (softmax-like)
-        const max = Math.max(...Object.values(scores), 0);
-        const exps = {}; let sum=0;
-        for(const k in scores){ exps[k] = Math.exp(scores[k]-max); sum+=exps[k] }
-        const probs = {}; for(const k in exps) probs[k] = sum? exps[k]/sum : 0;
-        const sorted = Object.keys(probs).sort((a,b)=>probs[b]-probs[a]);
-        const top = sorted.length? [sorted[0], scores[sorted[0]], probs[sorted[0]]] : null;
-        return {scores, probs, top}
-      }
-    }
+    const result = this.analyze(this.state.demoText);
 
-    // instantiate and seed categories from README examples
-    const model = new LexiDecayDemo();
-    model.addCategory('tech', ['AI','Model','AI algorithms','neural networks','deep learning']);
-    model.addCategory('art', ['painting','music','creativity','aesthetic','beauty']);
-    model.addCategory('sports', ['football','strength','competition','score']);
+    const particles = [
+      { top: 8, left: 12, size: 3, duration: 7, delay: 0, color: "var(--violet)" },
+      { top: 22, left: 82, size: 4, duration: 9, delay: 1, color: "var(--cyan)" },
+      { top: 34, left: 6, size: 2.5, duration: 8, delay: 2, color: "var(--cyan)" },
+      { top: 46, left: 92, size: 3.5, duration: 10, delay: 0.5, color: "var(--violet)" },
+      { top: 58, left: 18, size: 3, duration: 7.5, delay: 1.5, color: "var(--violet)" },
+      { top: 12, left: 55, size: 2.5, duration: 9.5, delay: 2.5, color: "var(--cyan)" },
+      { top: 70, left: 40, size: 4, duration: 8.5, delay: 0.8, color: "var(--cyan)" },
+      { top: 82, left: 70, size: 3, duration: 11, delay: 1.2, color: "var(--violet)" },
+      { top: 90, left: 25, size: 2.5, duration: 9, delay: 2.2, color: "var(--violet)" },
+      { top: 4, left: 35, size: 3.5, duration: 10.5, delay: 0.3, color: "var(--cyan)" },
+      { top: 64, left: 85, size: 2.5, duration: 8, delay: 1.8, color: "var(--violet)" },
+      { top: 38, left: 65, size: 3, duration: 9, delay: 2.8, color: "var(--cyan)" },
+      { top: 96, left: 50, size: 3.5, duration: 7.8, delay: 0.6, color: "var(--violet)" },
+      { top: 18, left: 96, size: 2.5, duration: 10, delay: 1.4, color: "var(--cyan)" },
+    ];
 
-    // UI wiring
-    const classifyBtn = document.getElementById('classifyBtn');
-    const resetBtn = document.getElementById('resetBtn');
-    const addSampleBtn = document.getElementById('addSampleBtn');
-    const results = document.getElementById('results');
-    const probsBox = document.getElementById('probs');
-    const catsBox = document.getElementById('cats');
+    const evidenceSources = [
+      { type: "direct", label: "Direct evidence", weight: 1.0, widthPct: (1.0 / 1.5) * 100, desc: "How much does seeing this token alone shift probability toward a class." },
+      { type: "phrase", label: "Phrase evidence", weight: 1.5, widthPct: 100, desc: "Multi-token phrases that passed the G² and NPMI filters, boosted by phrase_boost." },
+      { type: "context", label: "Context evidence", weight: 0.25, widthPct: (0.25 / 1.5) * 100, desc: "Evidence from tokens in the local window around each input token." },
+      { type: "propagation", label: "Propagation evidence", weight: 0.10, widthPct: (0.10 / 1.5) * 100, desc: "Evidence from graph neighbors reachable via bounded Personalized PageRank." },
+      { type: "interaction", label: "Interaction evidence", weight: 0.10, widthPct: (0.10 / 1.5) * 100, desc: "Evidence from edges between pairs of input tokens." },
+    ];
 
-    function renderCats(){ catsBox.innerHTML = ''; Object.keys(model.categories).forEach(label=>{
-      const el = document.createElement('div'); el.style.display='flex'; el.style.gap='8px'; el.style.alignItems='center';
-      const input = document.createElement('input'); input.value = label; input.style.flex='1'; input.onchange = (e)=>{
-        const newLabel = e.target.value.trim(); if(!newLabel) return; if(newLabel!==label){ model.categories[newLabel]=model.categories[label]; delete model.categories[label]; renderCats(); }
-      }
-      const del = document.createElement('button'); del.className='btn btn-ghost'; del.textContent='Delete'; del.onclick=()=>{ delete model.categories[label]; renderCats(); }
-      el.appendChild(input); el.appendChild(del); catsBox.appendChild(el);
-    }) }
-    renderCats();
+    const structuralTokens = [
+      { token: "__LONG_NUM__", pattern: "\\b\\d{8,15}\\b", spam: 50.7, ham: 0.07, hamWidth: Math.max(2, 0.07 * 8) },
+      { token: "__SHORT_CODE__", pattern: "\\b\\d{4,6}\\b", spam: 51.5, ham: 0.13, hamWidth: Math.max(2, 0.13 * 8) },
+      { token: "__MONEY__", pattern: "[£$€]\\d+ or \\d+p", spam: 21.8, ham: 0.14, hamWidth: Math.max(2, 0.14 * 8) },
+      { token: "__URL__", pattern: "https?:// or www.", spam: 14.2, ham: 0.04, hamWidth: Math.max(2, 0.04 * 8) },
+      { token: "__CAPS_WORD__", pattern: "[A-Z]{3,}", spam: 74.2, ham: 7.83, hamWidth: 7.83 },
+    ];
 
-    function renderProbs(probs){ probsBox.innerHTML=''; const entries = Object.entries(probs).sort((a,b)=>b[1]-a[1]);
-      entries.forEach(([k,v])=>{
-        const wrap = document.createElement('div'); wrap.className='prob';
-        const name = document.createElement('div'); name.textContent = k; name.style.width='90px';
-        const bar = document.createElement('div'); bar.className='bar'; const i = document.createElement('i'); i.style.width = (v*100)+'%'; bar.appendChild(i);
-        const pct = document.createElement('div'); pct.textContent = (v*100).toFixed(1)+'%'; pct.style.width='48px'; pct.style.textAlign='right'; pct.className='muted';
-        wrap.appendChild(name); wrap.appendChild(bar); wrap.appendChild(pct); probsBox.appendChild(wrap);
-      }) }
+    const comparisonMethods = [
+      { name: "SVM (TF-IDF)", f1: 98.4, weight: 500, color: "var(--fg)", barColor: "oklch(0.55 0.02 265)" },
+      { name: "LR (TF-IDF)", f1: 97.7, weight: 500, color: "var(--fg)", barColor: "oklch(0.55 0.02 265)" },
+      { name: "LexiDecay v2 — single split", f1: 97.6, weight: 800, color: "var(--cyan)", barColor: "linear-gradient(90deg,var(--violet),var(--cyan))" },
+      { name: "Random Forest", f1: 95.7, weight: 500, color: "var(--fg)", barColor: "oklch(0.55 0.02 265)" },
+      { name: "LexiDecay v2 — KFold k=5", f1: 95.4, weight: 800, color: "var(--cyan)", barColor: "linear-gradient(90deg,var(--violet),var(--cyan))" },
+      { name: "Naive Bayes (TF-IDF)", f1: 95.0, weight: 500, color: "var(--fg)", barColor: "oklch(0.55 0.02 265)" },
+      { name: "LR + Char 3-gram", f1: 94.3, weight: 500, color: "var(--fg)", barColor: "oklch(0.55 0.02 265)" },
+    ];
 
-    classifyBtn.addEventListener('click', ()=>{
-      const txt = document.getElementById('demo-input').value.trim(); const decay = parseFloat(document.getElementById('decay').value); const use_idf = document.getElementById('use_idf').checked;
-      if(!txt){ results.innerHTML = '<div class="muted">Please enter text to classify.</div>'; return }
-      const out = model.classify(txt, {decay, use_idf});
-      // build results
-      let html = '';
-      if(out.top){ html += `<div style="display:flex; justify-content:space-between; align-items:center"><div><strong style="font-size:18px">Top: ${out.top[0]}</strong><div class="muted">score ${out.top[1].toFixed(4)}</div></div><div style="text-align:right">prob ${(out.top[2]*100).toFixed(2)}%</div></div>` }
-      html += '<div style="margin-top:10px"><strong>Matched tokens</strong><div class="muted" style="margin-top:6px">(tokens present in categories)</div></div>';
-      // show matched words per category
-      html += '<div style="margin-top:6px">';
-      for(const cat in out.scores){
-        const toks = Object.keys(model.categories[cat].freqs).filter(t => txt.toLowerCase().includes(t));
-        html += `<div style="margin-top:8px"><strong>${cat}</strong> <span class="muted">${toks.length} matches</span><div class="muted" style="margin-top:6px">${toks.slice(0,10).join(', ') || '—'}</div></div>`
-      }
-      html += '</div>';
-      results.innerHTML = html; renderProbs(out.probs);
-    });
+    const kfoldStats = [
+      { label: "Accuracy", value: "98.74%" },
+      { label: "Spam F1", value: "95.38%" },
+      { label: "Ham F1", value: "99.27%" },
+      { label: "Macro F1", value: "97.33%" },
+    ];
 
-    resetBtn.addEventListener('click', ()=>{ document.getElementById('demo-input').value=''; results.innerHTML=''; probsBox.innerHTML=''; })
+    const apiMethods = [
+      { sig: "model.fit(X, y)", desc: "Full training from scratch; builds the relation graph and discovers phrases." },
+      { sig: "model.partial_fit(X, y)", desc: "Incremental graph update without full retraining — for streaming data." },
+      { sig: "model.calibrate_threshold(X, y, positive_label)", desc: "Scans 200 candidate thresholds to maximize F1 for the positive class." },
+      { sig: "model.predict(X)", desc: "Returns the final predicted label for each document." },
+      { sig: "model.predict_proba(X)", desc: "Returns softmax-normalized probabilities per class." },
+      { sig: "model.classify(text)", desc: "Produces a full PredictionResult with a human-readable evidence breakdown." },
+      { sig: "model.batch_predict(texts, n_jobs)", desc: "Parallel classification across multiple CPU cores." },
+      { sig: "model.save(path) / .load(path)", desc: "Serializes and restores the full graph, thresholds, and hyperparameters." },
+    ];
 
-    addSampleBtn.addEventListener('click', ()=>{
-      const label = 'sample-'+Math.floor(Math.random()*9000+1000);
-      model.addCategory(label, ['example','sample','token','demotext']); renderCats();
-    })
+    const constructorParams = [
+      { name: "window_size", def: "5", desc: "Co-occurrence window radius between tokens." },
+      { name: "phrase_min_support", def: "3", desc: "Minimum number of documents a bigram must appear in to become a phrase." },
+      { name: "phrase_g2_threshold", def: "10.83", desc: "G² log-likelihood threshold for phrase acceptance (p<0.001)." },
+      { name: "propagation_depth", def: "1", desc: "Maximum number of graph hops from seed nodes." },
+      { name: "use_structural_features", def: "True", desc: "Enables regex structural tokens such as __URL__ and __MONEY__." },
+      { name: "add_class_prior", def: "False", desc: "Adds log(n_c/N) to correct for class imbalance." },
+      { name: "uncertainty_lambda", def: "5.0", desc: "Controls how fast uncertainty saturates with document frequency." },
+    ];
 
-    document.getElementById('exportBtn').addEventListener('click', ()=>{
-      const payload = JSON.stringify(model.categories, null, 2);
-      const blob = new Blob([payload], {type:'application/json'});
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a'); a.href = url; a.download = 'lexidecay-model.json'; a.click(); URL.revokeObjectURL(url);
-    });
-
-    // keyboard shortcut: Cmd/Ctrl+K to focus input
-    window.addEventListener('keydown', (e)=>{ if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){ e.preventDefault(); document.getElementById('demo-input').focus(); } })
-
-  </script>
+    return {
+      accentA, accentB, motionState, showDemo,
+      particles,
+      cursorEnabled: this.state.cursorEnabled,
+      cursorDotRef: this.cursorDotRef,
+      cursorRingRef: this.cursorRingRef,
+      demoText: this.state.demoText,
+      onDemoInput: this.setDemoText,
+      loadSample1: () => this.loadSample("WINNER!! Call 09061701461 to claim your prize NOW"),
+      loadSample2: () => this.loadSample("Hey, are we still on for dinner tomorrow at 8?"),
+      loadSample3: () => this.loadSample("Special OFFER just for you - limited time, click here www.deal.com"),
+      demoLabel: result.label,
+      demoProbFormatted: (result.prob * 100).toFixed(1),
+      resultColor: result.isSpam ? "oklch(0.72 0.18 30)" : "oklch(0.75 0.16 150)",
+      resultBg: result.isSpam ? "oklch(0.65 0.18 25 / 0.14)" : "oklch(0.65 0.14 150 / 0.14)",
+      demoEvidence: result.evidence,
+      evidenceSources,
+      structuralTokens,
+      comparisonMethods,
+      kfoldStats,
+      apiMethods,
+      constructorParams,
+      copyInstall: () => this.copyText("pip install LexiDecay", "copiedInstall"),
+      copyQuickstart: () => this.copyText('model.calibrate_threshold(X_train, y_train, positive_label="spam")\nlabels = model.predict(X_test)\nprobas = model.predict_proba(X_test)', "copiedQuickstart"),
+      installCopyLabel: this.state.copiedInstall ? "Copied ✓" : "Copy",
+      quickstartCopyLabel: this.state.copiedQuickstart ? "Copied ✓" : "Copy",
+    };
+  }
+}
+</script>
 </body>
 </html>
