@@ -16,7 +16,8 @@ LexiDecay v2 builds a statistical co-occurrence graph from training text, then c
 - **CPU-only, no embeddings** — runs on any machine; training speed is close to Logistic Regression
 - **Rigorous evaluation** — reports Spam F1, Ham F1, and Macro F1 with StratifiedKFold k=5; most published papers report only Spam F1 on a single split
 - **Online learning** — `partial_fit()` updates the graph incrementally without retraining from scratch
-- **Structural feature extraction** — regex pseudo-tokens (`__LONG_NUM__`, `__CAPS_WORD__`, `__MONEY__`, `__URL__`, `__SHORT_CODE__`) capture SMS-specific patterns without manual feature engineering
+- **Structural feature extraction** — regex pseudo-tokens (`__LONG_NUM__`, `__CAPS_WORD__`, `__MONEY__`, `__URL__`, `__SHORT_CODE__`)
+- **Free from language** - can wrok on anything!
 - **Calibrated threshold** — `calibrate_threshold()` scans 200 candidates on training data to maximize spam F1, handling class imbalance without SMOTE or oversampling
 - **Apache 2.0 license** — commercially permissive
 
