@@ -36,6 +36,10 @@ pip install LexiDecay
 
 **Requirements:** Python 3.8+, NumPy. Optional: scikit-learn (for cross-validation scripts), matplotlib (for charts).
 
+## LexiDecay-v1
+There is [LexiDecay-v1](https://github.com/mr-r0ot/LexiDecay/blob/LexiDecay-v1)
+The algorithm is hundreds of times simpler and completely lacks the ability to comprehend phrases or concepts. (It is roughly similar to a type of Naive Bayes classifier and is far simpler than v2.)
+
 ---
 
 ## Quick Start
