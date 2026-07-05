@@ -64,7 +64,7 @@ LexiDecay is suitable for a wide variety of language-intelligent systems:
 ## ⚙️ Installation
 
 ```bash
-pip install LexiDecay
+pip install LexiDecay==1.0.0
 ````
 
 That’s it! 🪄
