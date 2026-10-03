@@ -1,5 +1,5 @@
 # LexiDecay v2
-
+ ## we put Lexidecy away and work on https://github.com/mr-r0ot/TokenBoost it's absolutely better 
 
 ![LexiDecaylogo](lxd_logo.png)
 
